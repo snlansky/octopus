@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 const METADATA: &str = "metadata";
 const SCHEMA: &str = "scheme";
 const PRIMARY_KEY: &str = "pk";
@@ -12,22 +13,22 @@ pub struct Table {
     db: String,
     model: String,
     pks: Vec<String>,
-    field_names:Vec<String>,
-    field_types:Vec<String>,
+    field_names: Vec<String>,
+    field_types: Vec<String>,
 }
 
 impl Table {
     pub fn new(db: &str,
                model: &str,
-               pks: Vec<String>,
-               field_names: Vec<String>,
-               field_types:Vec<String>) -> Table {
+               pks: Vec<&str>,
+               field_names: Vec<&str>,
+               field_types: Vec<&str>) -> Table {
         Table {
             db: String::from(db),
             model: String::from(model),
-            pks:pks,
-            field_names:field_names,
-            field_types:field_types,
+            pks: pks.iter().map(|&elem| String::from(elem)).collect::<Vec<_>>(),
+            field_names: field_names.iter().map(|&elem| String::from(elem)).collect::<Vec<_>>(),
+            field_types: field_types.iter().map(|&elem| String::from(elem)).collect::<Vec<_>>(),
         }
     }
 

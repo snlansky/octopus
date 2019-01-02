@@ -6,3 +6,4 @@ authors = ["snlan"]
 [dependencies]
 mysql = "15.0.0"
 redis = "0.9.1"
+#orm = "0.2.0"

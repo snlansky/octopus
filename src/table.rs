@@ -26,9 +26,18 @@ impl Table {
         Table {
             db: String::from(db),
             model: String::from(model),
-            pks: pks.iter().map(|&elem| String::from(elem)).collect::<Vec<_>>(),
-            field_names: field_names.iter().map(|&elem| String::from(elem)).collect::<Vec<_>>(),
-            field_types: field_types.iter().map(|&elem| String::from(elem)).collect::<Vec<_>>(),
+            pks: pks
+                .iter()
+                .map(|&elem| String::from(elem))
+                .collect::<Vec<_>>(),
+            field_names: field_names
+                .iter()
+                .map(|&elem| String::from(elem))
+                .collect::<Vec<_>>(),
+            field_types: field_types
+                .iter()
+                .map(|&elem| String::from(elem))
+                .collect::<Vec<_>>(),
         }
     }
 

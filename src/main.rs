@@ -1,14 +1,23 @@
-mod table;
+extern crate mysql;
 
-use table::Table;
+mod table;
+mod db;
+mod config;
+use config::DBRoute;
+
 
 fn main() {
-    let pks = vec!["id"];
-    let fns = vec!["id", "name", "age"];
-    let fts = vec!["int", "vchar", "int"];
+    let dbr = DBRoute {
+        engine: String::from("Mysql"),
+        user: String::from("snlan"),
+        pass: String::from("snlan"),
+        addr: String::from("www.snlan.top"),
+        db: String::from("block"),
+    };
+    let mut db = db::open_db(dbr).unwrap();
+    let res = db.load_db().unwrap();
 
-    let table = Table::new("kd", "user", pks, fns, fts);
-    println!("{:?}", table);
-    println!("{}", table.get_db_set_key());
-    println!("{}", table.get_db_set_key());
+    println!("{:#?}", db.tables);
+
 }
+

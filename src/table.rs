@@ -9,36 +9,42 @@ const LUA_RET: &str = "total";
 const FIELD_SEP: &str = ",";
 
 #[derive(Debug)]
+pub struct TableSchema {
+    pub table_name: String,
+    pub column_name: String,
+    pub data_type: String,
+    pub column_key: String,
+}
+
+#[derive(Debug)]
+pub struct Field {
+    name: String,
+    tpe: String,
+}
+
+
+#[derive(Debug)]
 pub struct Table {
     db: String,
     model: String,
     pks: Vec<String>,
-    field_names: Vec<String>,
-    field_types: Vec<String>,
+    fields: Vec<Field>,
 }
 
 impl Table {
-    pub fn new(db: &str,
-               model: &str,
-               pks: Vec<&str>,
-               field_names: Vec<&str>,
-               field_types: Vec<&str>) -> Table {
-        Table {
-            db: String::from(db),
-            model: String::from(model),
-            pks: pks
-                .iter()
-                .map(|&elem| String::from(elem))
-                .collect::<Vec<_>>(),
-            field_names: field_names
-                .iter()
-                .map(|&elem| String::from(elem))
-                .collect::<Vec<_>>(),
-            field_types: field_types
-                .iter()
-                .map(|&elem| String::from(elem))
-                .collect::<Vec<_>>(),
+    pub fn new(db: String,
+               model: String, ts: Vec<TableSchema>) -> Table {
+        let mut pks = Vec::new();
+        let mut fields = Vec::new();
+
+        for f in ts {
+            if f.column_key == "PRI" {
+                pks.push(f.column_name.clone())
+            }
+            fields.push(Field { name: f.column_name.clone(), tpe: f.data_type.clone() })
         }
+
+        Table { db, model, pks, fields }
     }
 
     // 生成缓存对象集合

@@ -1,23 +1,33 @@
 extern crate mysql;
+extern crate serde_json;
+use serde_json::{Result,Value};
 
-mod table;
 mod db;
 mod config;
-use config::DBRoute;
 
 
 fn main() {
-    let dbr = DBRoute {
-        engine: String::from("Mysql"),
-        user: String::from("snlan"),
-        pass: String::from("snlan"),
-        addr: String::from("www.snlan.top"),
-        db: String::from("block"),
-    };
-    let mut db = db::open_db(dbr).unwrap();
-    let res = db.load_db().unwrap();
+    let data = r#"{"age":12,"name":"lucy"}"#;
+    let v :Value= serde_json::from_str(data).unwrap();
+    println!("Please call {} at the number {}", v["age"], v["name"]);
+    match  &v {
+        Value::Null => println!("null"),
+        Value::Bool(b) => println!("bool {}", b),
+        Value::Number(num) => println!("number {}", num),
+        Value::String(s) => println!("string {}", s),
+        Value::Array(v)=>println!("array {:?}", v),
+        Value::Object(m)=> {
+            for (k, v) in m {
+                println!("map {} {:?}", k, v);
+            }
+        }
+    }
 
-    println!("{:#?}", db.tables);
+    if let Value::Object(m) = v {
+        for (k, v) in m {
+            println!("map {} {:?}", k, v);
+        }
+    }
 
 }
 

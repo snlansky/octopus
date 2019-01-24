@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use mysql::{PooledConn, Error, Pool, Params, Value};
-use table::{Table, TableSchema, Field};
+use mysql::{PooledConn, Error, Pool, Value};
 use config::DBRoute;
+use db::table::{Table, TableSchema};
 
 #[allow(dead_code)]
 pub struct DB {
@@ -32,7 +32,7 @@ impl DB {
         let ts: Vec<String> = conn.prep_exec(sql, params)
             .map(|result| {
                 result.map(|x| x.unwrap()).map(|row| {
-                    let (table_name) = mysql::from_row(row);
+                    let table_name = mysql::from_row(row);
                     table_name
                 }).collect::<Vec<_>>()
             })?;
@@ -118,5 +118,25 @@ impl DBManger {
             Some(db) => Some(Box::new(db)),
             None => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_conn() {
+        let dbr = DBRoute {
+            engine: String::from("Mysql"),
+            user: String::from("snlan"),
+            pass: String::from("snlan"),
+            addr: String::from("www.snlan.top"),
+            db: String::from("block"),
+        };
+        let mut db = open_db(dbr).unwrap();
+        let res = db.load_db().unwrap();
+
+        println!("{:#?}", db.tables);
     }
 }

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::any::Any;
 use std::fmt::Display;
+use super::value::Value;
 
 #[allow(dead_code)]
 const METADATA: &str = "metadata";
@@ -81,77 +82,45 @@ impl Table {
     }
 }
 
-pub fn get_model_key<T: Any + Display>(db_name: &String,
-                                       model_name: &String,
-                                       pk_list: &Vec<String>,
-                                       row: &HashMap<String, T>) -> String {
-    "Fs".to_string()
-}
-
-pub fn set_hash_values<T: Any + Display>(fv: &HashMap<String, T>) -> HashMap<String, String> {
-//    let hash: HashMap<String, String> = HashMap::new();
-    fv.iter().map(|(k, v)| {
-        (k.clone(), conv_string(v))
-    }).collect::<HashMap<String, String>>()
-}
-
-
-pub fn conv_string<T: Any + Display>(v: &T) -> String {
-    let t = v as &dyn Any;
-    if let Some(s) = t.downcast_ref::<String>() {
-        s.clone()
-    } else if let Some(s) = t.downcast_ref::<&str>() {
-        s.to_string()
-    } else if let Some(i) = t.downcast_ref::<i32>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<i64>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<u32>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<u64>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<f32>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<f64>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<bool>() {
-        if *i {
-            "TRUE".to_string()
+pub fn get_model_key(db_name: &String,
+                     model_name: &String,
+                     pk_list: &Vec<String>,
+                     row: &HashMap<String, Value>) -> String {
+    let pv_list = pk_list.iter().map(|p|{
+        let value = row.get(p);
+        if let Some(v) = value {
+            value.to_string()
         } else {
-            "FALSE".to_string()
+            ""
         }
-    } else {
-        format!("{}", v)
-    }
+    }).collect::<Vec<_>>();
+
+//    format!("{}:{}:{}:{}", db_name, model_name, pk_list.)
+    "fs".to_string()
+}
+
+pub fn set_hash_values(fv: &HashMap<String, Value>) -> HashMap<String, String> {
+    fv.iter().map(|(k, v)| {
+        (k.clone(), v.to_string())
+    }).collect::<HashMap<String, String>>()
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::any::Any;
+    use db::value::Value;
 
     #[test]
-    fn test_conv_string() {
-        use super::conv_string;
-        assert_eq!(conv_string(&12), "12");
-        assert_eq!(conv_string(&12.2), "12.2");
-        assert_eq!(conv_string(&false), "FALSE");
-        assert_eq!(conv_string(&"string"), "string");
-        let s = String::from("hello");
-        assert_eq!(conv_string(&s), s);
+    fn test_set_hash_values() {
+        let mut hash: HashMap<String, Value> = HashMap::new();
+        hash.insert(String::from("k1"), Value::NegInt(12));
+        hash.insert(String::from("k2"), Value::Float(23.5));
+        hash.insert(String::from("k3"), Value::String(String::from("hello")));
+        hash.insert(String::from("k4"), Value::Bool(true));
+
+        let new = super::set_hash_values(&hash);
+        for (k, v) in &new {
+            println!("---{} {:?}", k, v);
+        }
     }
-//
-//    #[test]
-//    fn test_set_hash_values() {
-//        let mut hash :HashMap<String, Any> = HashMap::new();
-//        hash.insert(String::from("k1"), Box::new(12));
-////        hash.insert(String::from("k2"), 12.5);
-////        hash.insert(String::from("k3"), "abc");
-////        hash.insert(String::from("k4"), true);
-//
-//        let new = super::set_hash_values(&hash);
-//        for (k, v) in &new {
-//            println!("{} {}", k, v);
-//        }
-//    }
 }

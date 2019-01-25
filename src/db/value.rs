@@ -14,16 +14,16 @@ impl ToString for Value {
     fn to_string(&self) -> String {
         match self {
             Value::PosInt(i) => i.to_string(),
-            Value::NegInt(i)=>i.to_string(),
-            Value::Float(i)=>i.to_string(),
-            Value::String(s)=>s.clone(),
-            Value::Bool(b)=>{
+            Value::NegInt(i) => i.to_string(),
+            Value::Float(i) => i.to_string(),
+            Value::String(s) => s.clone(),
+            Value::Bool(b) => {
                 if *b {
                     "TRUE".to_string()
                 } else {
                     "FALSE".to_string()
                 }
-            },
+            }
         }
     }
 }
@@ -54,6 +54,18 @@ pub fn conv_string<T: Any + Display>(v: &T) -> String {
         }
     } else {
         format!("{}", v)
+    }
+}
+
+
+pub fn vec_join(vec: Vec<String>, sep: String) -> String {
+    let v = vec![1,3,4];
+    match vec.len() {
+        0=> "".to_string(),
+        1=> vec[0],
+        2=> vec[0] + sep + vec[1],
+        3=> vec[0] + sep + vec[1] + sep + vec[2],
+        _=> "".to_string(),
     }
 }
 

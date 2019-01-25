@@ -1,9 +1,10 @@
 extern crate mysql;
 extern crate serde_json;
 use serde_json::{Result,Value};
-
 mod db;
 mod config;
+mod mem;
+
 
 
 fn main() {

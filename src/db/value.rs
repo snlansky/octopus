@@ -58,21 +58,9 @@ pub fn conv_string<T: Any + Display>(v: &T) -> String {
 }
 
 
-pub fn vec_join(vec: Vec<String>, sep: String) -> String {
-    let v = vec![1,3,4];
-    match vec.len() {
-        0=> "".to_string(),
-        1=> vec[0],
-        2=> vec[0] + sep + vec[1],
-        3=> vec[0] + sep + vec[1] + sep + vec[2],
-        _=> "".to_string(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::any::Any;
 
     #[test]
     fn test_conv_string() {

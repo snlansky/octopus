@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::any::Any;
 use std::fmt::Display;
 use super::value::Value;
 
@@ -89,14 +88,13 @@ pub fn get_model_key(db_name: &String,
     let pv_list = pk_list.iter().map(|p|{
         let value = row.get(p);
         if let Some(v) = value {
-            value.to_string()
+            v.to_string()
         } else {
-            ""
+            "".to_string()
         }
     }).collect::<Vec<_>>();
 
-//    format!("{}:{}:{}:{}", db_name, model_name, pk_list.)
-    "fs".to_string()
+    format!("{}:{}:{}:{}", db_name, model_name, pk_list.join(FIELD_SEP), pv_list.join(FIELD_SEP))
 }
 
 pub fn set_hash_values(fv: &HashMap<String, Value>) -> HashMap<String, String> {
@@ -122,5 +120,18 @@ mod tests {
         for (k, v) in &new {
             println!("---{} {:?}", k, v);
         }
+    }
+
+    #[test]
+    fn test_get_model_key() {
+        let res = String::from("daqing:user_table:name,age:lucy,12");
+        let db_name = String::from("daqing");
+        let model_name = String::from("user_table");
+        let pl = vec![String::from("name"), String::from("age")];
+        let mut row = HashMap::new();
+        row.insert(String::from("name"), Value::String("lucy".to_string()));
+        row.insert(String::from("age"), Value::NegInt(12));
+        row.insert(String::from("tel"), Value::String("129099101".to_string()));
+        assert_eq!(super::get_model_key(&db_name, &model_name, &pl, &row), res);
     }
 }

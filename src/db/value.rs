@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::any::Any;
 use std::fmt::Display;
 
@@ -60,7 +59,6 @@ pub fn conv_string<T: Any + Display>(v: &T) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     #[test]
     fn test_conv_string() {

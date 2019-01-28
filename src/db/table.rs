@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::Display;
 use super::value::Value;
 
 #[allow(dead_code)]

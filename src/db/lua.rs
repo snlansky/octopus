@@ -1,7 +1,6 @@
 extern crate redis;
 
-use self::redis::{Script, Connection, ToRedisArgs};
-use std::fmt::Debug;
+use self::redis::{Script, Connection, ToRedisArgs, ScriptInvocation};
 
 pub struct LuaScript<T:ToRedisArgs> {
     statements: Vec<String>,
@@ -31,16 +30,17 @@ impl <T:ToRedisArgs>LuaScript<T> {
     }
     pub fn invoke(self, con: &Connection) -> Result<isize, redis::RedisError> {
         let script = Script::new(self.statements.join("\n").as_str());
+
+        let mut invk = script;
         for arg in self.argv {
-            script.arg(arg);
+            let mut invk = invk.arg(arg);
         }
-        script.invoke(con)
+        invk.invoke(con)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::redis::Script;
 
     #[test]
     fn test_lua_script_invoke() {

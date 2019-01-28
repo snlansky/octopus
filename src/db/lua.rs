@@ -10,13 +10,7 @@ pub struct LuaScript<T:ToRedisArgs> {
     argv: Vec<T>,
     arg_index: i32,
 }
-//}
 
-//impl Clone for Sized {
-//    fn clone(&self) -> Self {
-//
-//    }
-//}
 impl <T:ToRedisArgs>LuaScript<T> {
     pub fn new() ->LuaScript<T> {
         LuaScript {

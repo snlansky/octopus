@@ -7,9 +7,12 @@ use self::redis::ConnectionLike;
 use self::redis::RedisResult;
 use self::redis::ErrorKind;
 use self::sha1::Sha1;
+use std::collections::HashMap;
 
-pub struct LuaScript<'a> {
-    statements: Vec<&'a str>,
+const LUA_RET: &str = "total";
+
+pub struct LuaScript {
+    statements: Vec<String>,
     keys: Vec<String>,
     key_index: i32,
     argv: Vec<Vec<u8>>,
@@ -17,29 +20,53 @@ pub struct LuaScript<'a> {
 
 }
 
-impl <'a> LuaScript<'a>  {
-    pub fn new() -> LuaScript<'a>  {
+impl LuaScript {
+    pub fn new() -> LuaScript {
         LuaScript {
-            statements: vec!["local total = 0", "local r = 0"],
+            statements: vec!["local total = 0".to_string(), "local r = 0".to_string()],
             keys: Vec::new(),
-            key_index: 1,
+            key_index: 0,
             argv: Vec::new(),
-            arg_index: 1,
+            arg_index: 0,
         }
     }
 
-    pub fn append(&mut self, code: &'a str) {
-        self.statements.push(code)
+    fn push_arg<T: ToRedisArgs>(&mut self, arg: T) {
+        arg.write_redis_args(&mut self.argv);
+        self.arg_index += 1;
     }
 
-    pub fn arg<T: ToRedisArgs>(&mut self, arg: T) {
-        arg.write_redis_args(&mut self.argv);
-//        self.argv.push(arg);
+    fn push_key(&mut self, key: String) {
+        self.keys.push(key);
+        self.key_index += 1;
     }
-    pub fn invoke(self, con: &Connection) -> Result<isize, redis::RedisError> {
-//        let mut args: Vec<Vec<u8>> = Vec::new();
-        let mut keys: Vec<Vec<u8>> = Vec::new();
+
+    pub fn sadd<T: ToRedisArgs + Clone>(&mut self, key: String, member: &Vec<T>) {
+        let mut args: Vec<String> = Vec::with_capacity(member.len());
+        for v in member.into_iter() {
+            self.push_arg(v.clone());
+            args.push(format!("ARGV[{}]", self.arg_index));
+        }
+        self.push_key(key);
+        let code = format!("{} = {} + redis.call('SADD', KEYS[{}], {})\n", LUA_RET, LUA_RET, self.key_index, args.join(", "));
+        self.statements.push(code);
+    }
+
+    pub fn hmset<T: ToRedisArgs + Clone>(&mut self, key: String, fv: &HashMap<String, T>) {
+        let fv_list = fv.into_iter().map(|(f, v)| {
+            self.push_key(f.clone());
+            self.push_arg(v.clone());
+            format!("KEYS[{}], ARGV[{}]", self.key_index, self.arg_index)
+        }).collect::<Vec<_>>();
+        let code = format!("r = redis.call('HMSET', '{}', {})\n", key, fv_list.join(", "));
+        self.statements.push(code);
+        self.statements.push(format!("if r.ok == 'OK'\nthen\n{} = {} + 1\nend\n", LUA_RET, LUA_RET));
+    }
+
+    pub fn invoke(&mut self, con: &Connection) -> Result<isize, redis::RedisError> {
+        self.statements.push(format!("return {}", LUA_RET));
         let code = self.statements.join("\n");
+        println!("\n{}\n", code);
         let mut hash = Sha1::new();
         hash.update(code.as_bytes());
         let hash = hash.digest().to_string();
@@ -75,24 +102,43 @@ impl <'a> LuaScript<'a>  {
 
 #[cfg(test)]
 mod tests {
+    use super::redis::Connection;
+    use std::collections::HashMap;
+    use super::redis::ToRedisArgs;
+
+    fn get_conn() -> Connection {
+        let client = redis::Client::open("redis://:snlan@www.snlan.top:6379/").unwrap();
+        client.get_connection().unwrap()
+    }
+
     #[test]
-    fn test_lua_script_invoke() {
-        let client = redis::Client::open("redis://www.snlan.top:6379/").unwrap();
-        let con = client.get_connection().unwrap();
+    fn test_lua_script_sadd() {
+        let con = get_conn();
         let mut script = super::LuaScript::new();
-        script.append(r"
-    return tonumber(ARGV[1]) + tonumber(ARGV[2]);
-");
-        script.arg(1);
-        script.arg(2);
+        script.sadd("name".to_string(), &vec!["lucy", "alias", "bob"]);
 
-        let result = script.invoke(&con);
+        let r1 = script.invoke(&con).unwrap();
 
-        match result {
-            Ok(t) => {
-                println!("----{}", t);
-            },
-            Err(e) => println!("---->{}", e),
-        }
+        assert_eq!(r1, 3);
+
+        let mut script = super::LuaScript::new();
+        script.sadd("name".to_string(), &vec!["lucy", "lion"]);
+        let r2 = script.invoke(&con).unwrap();
+        assert_eq!(r2, 1);
+    }
+
+    #[test]
+    fn test_lua_script_hmset() {
+        let con = get_conn();
+        let mut script = super::LuaScript::new();
+
+        let mut fv = HashMap::new();
+        fv.insert("google".to_string(), "www.google.com");
+        fv.insert("yahoo".to_string(), "www.yahoo.com");
+
+        script.hmset("website".to_string(), &fv);
+
+        let r1 = script.invoke(&con).unwrap();
+        assert_eq!(r1,1);
     }
 }

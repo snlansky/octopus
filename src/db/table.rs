@@ -8,7 +8,6 @@ const PRIMARY_KEY: &str = "pk";
 const SET: &str = "set";
 const TIMER: &str = "timer";
 const COUNTER: &str = "counter";
-const LUA_RET: &str = "total";
 const FIELD_SEP: &str = ",";
 
 #[derive(Debug)]

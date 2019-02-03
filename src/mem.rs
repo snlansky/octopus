@@ -20,7 +20,7 @@ mod tests {
 
     #[test]
     fn test_redis() {
-        let res = Mem::fetch_an_integer("redis://www.snlan.top:6379/");
+        let res = Mem::fetch_an_integer("redis://:snlan@www.snlan.top:6379/");
         match res {
             Ok(t) => println!("{}", t),
             Err(e)=> println!("err {}", e),

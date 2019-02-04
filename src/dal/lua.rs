@@ -76,12 +76,24 @@ impl LuaScript {
 
     pub fn del(&mut self, keys: &Vec<String>) {
         let key_list = keys.into_iter()
-            .map(|key|{
+            .map(|key| {
                 self.push_key(key.clone());
-                format!("KEYS[{}]",self.key_index)
+                format!("KEYS[{}]", self.key_index)
             })
             .collect::<Vec<_>>();
         let code = format!("{} = {} + redis.call('DEL', {})\n", LUA_RET, LUA_RET, key_list.join(", "));
+        self.statements.push(code);
+    }
+
+    pub fn srem(&mut self, key: String, member: &Vec<String>) {
+        let m_list = member.into_iter()
+            .map(|k| {
+                self.push_arg(k.clone());
+                format!("ARGV[{}]", self.arg_index)
+            })
+            .collect::<Vec<_>>();
+        self.push_key(key);
+        let code = format!("redis.call('SREM', KEYS[{}], {})\n", self.key_index, m_list.join(", "));
         self.statements.push(code);
     }
 
@@ -178,13 +190,24 @@ mod tests {
     #[test]
     fn test_lua_script_del() {
         let con = get_conn();
-        let _:() = con.set("k1", 42).unwrap();
-        let _ :() = con.set("k2", "hello").unwrap();
+        let _: () = con.set("k1", 42).unwrap();
+        let _: () = con.set("k2", "hello").unwrap();
         let mut script = super::LuaScript::new();
 
         script.del(&vec!["k1".to_string(), "k2".to_string()]);
 
         let r1 = script.invoke(&con).unwrap();
         assert_eq!(r1, 2);
+    }
+
+    #[test]
+    fn test_lua_script_srem() {
+        let con = get_conn();
+        let mut script = super::LuaScript::new();
+
+        script.srem("name".to_string(), &vec!["lucy".to_string(), "alias".to_string(), "other".to_string()]);
+
+        let r1 = script.invoke(&con).unwrap();
+        assert_eq!(r1, 0);
     }
 }

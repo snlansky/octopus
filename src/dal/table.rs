@@ -82,13 +82,13 @@ impl Table {
 
     pub fn register_schema(&self, con: &Connection) -> Result<(), redis::RedisError> {
         let mut script = LuaScript::new();
-        script.sadd(self.get_db_set_key(), &vec![self.model.clone()]);
+        script.sadd(self.get_db_set_key(), vec![self.model.clone()]);
         let fv = self.fields.iter()
             .map(|Field { name: n, tpe: t }| {
                 (n.clone(), t.clone())
             })
             .collect::<HashMap<_, _>>();
-        script.hmset(self.get_table_schema_key(), &fv);
+        script.hmset(self.get_table_schema_key(), fv);
         script.invoke(con)?;
         Ok(())
     }

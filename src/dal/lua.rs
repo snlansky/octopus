@@ -41,10 +41,10 @@ impl LuaScript {
         self.key_index += 1;
     }
 
-    pub fn sadd<T: ToRedisArgs + Clone>(&mut self, key: String, member: &Vec<T>) {
+    pub fn sadd<T: ToRedisArgs + Clone>(&mut self, key: String, member: Vec<T>) {
         let mut args: Vec<String> = Vec::with_capacity(member.len());
         for v in member.into_iter() {
-            self.push_arg(v.clone());
+            self.push_arg(v);
             args.push(format!("ARGV[{}]", self.arg_index));
         }
         self.push_key(key);
@@ -52,11 +52,11 @@ impl LuaScript {
         self.statements.push(code);
     }
 
-    pub fn hmset<T: ToRedisArgs + Clone>(&mut self, key: String, fv: &HashMap<String, T>) {
+    pub fn hmset<T: ToRedisArgs + Clone>(&mut self, key: String, fv: HashMap<String, T>) {
         let fv_list = fv.into_iter()
             .map(|(f, v)| {
-                self.push_key(f.clone());
-                self.push_arg(v.clone());
+                self.push_key(f);
+                self.push_arg(v);
                 format!("KEYS[{}], ARGV[{}]", self.key_index, self.arg_index)
             })
             .collect::<Vec<_>>();
@@ -74,10 +74,10 @@ impl LuaScript {
         self.statements.push(format!("if r == 1\nthen\n{} = {} + 1\nend\n", LUA_RET, LUA_RET));
     }
 
-    pub fn del(&mut self, keys: &Vec<String>) {
+    pub fn del(&mut self, keys: Vec<String>) {
         let key_list = keys.into_iter()
             .map(|key| {
-                self.push_key(key.clone());
+                self.push_key(key);
                 format!("KEYS[{}]", self.key_index)
             })
             .collect::<Vec<_>>();
@@ -85,10 +85,10 @@ impl LuaScript {
         self.statements.push(code);
     }
 
-    pub fn srem(&mut self, key: String, member: &Vec<String>) {
+    pub fn srem(&mut self, key: String, member: Vec<String>) {
         let m_list = member.into_iter()
             .map(|k| {
-                self.push_arg(k.clone());
+                self.push_arg(k);
                 format!("ARGV[{}]", self.arg_index)
             })
             .collect::<Vec<_>>();
@@ -155,14 +155,14 @@ mod tests {
     fn test_lua_script_sadd() {
         let con = get_conn();
         let mut script = super::LuaScript::new();
-        script.sadd("name".to_string(), &vec!["lucy", "alias", "bob"]);
+        script.sadd("name".to_string(), vec!["lucy", "alias", "bob"]);
 
         let r1 = script.invoke(&con).unwrap();
 
         assert_eq!(r1, 3);
 
         let mut script = super::LuaScript::new();
-        script.sadd("name".to_string(), &vec!["lucy", "lion"]);
+        script.sadd("name".to_string(), vec!["lucy", "lion"]);
         let r2 = script.invoke(&con).unwrap();
         assert_eq!(r2, 1);
     }
@@ -176,7 +176,7 @@ mod tests {
         fv.insert("google".to_string(), "www.google.com");
         fv.insert("yahoo".to_string(), "www.yahoo.com");
 
-        script.hmset("website".to_string(), &fv);
+        script.hmset("website".to_string(), fv);
 
         let r1 = script.invoke(&con).unwrap();
         assert_eq!(r1, 1);
@@ -200,7 +200,7 @@ mod tests {
         let _: () = con.set("k2", "hello").unwrap();
         let mut script = super::LuaScript::new();
 
-        script.del(&vec!["k1".to_string(), "k2".to_string()]);
+        script.del(vec!["k1".to_string(), "k2".to_string()]);
 
         let r1 = script.invoke(&con).unwrap();
         assert_eq!(r1, 2);
@@ -211,7 +211,7 @@ mod tests {
         let con = get_conn();
         let mut script = super::LuaScript::new();
 
-        script.srem("name".to_string(), &vec!["lucy".to_string(), "alias".to_string(), "other".to_string()]);
+        script.srem("name".to_string(), vec!["lucy".to_string(), "alias".to_string(), "other".to_string()]);
 
         let r1 = script.invoke(&con).unwrap();
         assert_eq!(r1, 0);

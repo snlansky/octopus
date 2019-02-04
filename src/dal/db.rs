@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use mysql::{PooledConn, Error, Pool, Value};
 use config::DBRoute;
-use db::table::{Table, TableSchema};
+use dal::table::{Table, TableSchema};
 
 #[allow(dead_code)]
 pub struct DB {

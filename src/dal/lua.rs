@@ -53,14 +53,36 @@ impl LuaScript {
     }
 
     pub fn hmset<T: ToRedisArgs + Clone>(&mut self, key: String, fv: &HashMap<String, T>) {
-        let fv_list = fv.into_iter().map(|(f, v)| {
-            self.push_key(f.clone());
-            self.push_arg(v.clone());
-            format!("KEYS[{}], ARGV[{}]", self.key_index, self.arg_index)
-        }).collect::<Vec<_>>();
+        let fv_list = fv.into_iter()
+            .map(|(f, v)| {
+                self.push_key(f.clone());
+                self.push_arg(v.clone());
+                format!("KEYS[{}], ARGV[{}]", self.key_index, self.arg_index)
+            })
+            .collect::<Vec<_>>();
         let code = format!("r = redis.call('HMSET', '{}', {})\n", key, fv_list.join(", "));
         self.statements.push(code);
         self.statements.push(format!("if r.ok == 'OK'\nthen\n{} = {} + 1\nend\n", LUA_RET, LUA_RET));
+    }
+
+    pub fn hset<T: ToRedisArgs + Clone>(&mut self, key: String, field: String, value: T) {
+        let code = format!("r = redis.call('HSET', KEYS[{}], KEYS[{}], ARGV[{}])", self.key_index + 1, self.key_index + 2, self.arg_index + 1);
+        self.push_key(key);
+        self.push_key(field);
+        self.push_arg(value);
+        self.statements.push(code);
+        self.statements.push(format!("if r == 1\nthen\n{} = {} + 1\nend\n", LUA_RET, LUA_RET));
+    }
+
+    pub fn del(&mut self, keys: &Vec<String>) {
+        let key_list = keys.into_iter()
+            .map(|key|{
+                self.push_key(key.clone());
+                format!("KEYS[{}]",self.key_index)
+            })
+            .collect::<Vec<_>>();
+        let code = format!("{} = {} + redis.call('DEL', {})\n", LUA_RET, LUA_RET, key_list.join(", "));
+        self.statements.push(code);
     }
 
     pub fn invoke(&mut self, con: &Connection) -> Result<isize, redis::RedisError> {
@@ -104,7 +126,7 @@ impl LuaScript {
 mod tests {
     use super::redis::Connection;
     use std::collections::HashMap;
-    use super::redis::ToRedisArgs;
+    use dal::lua::redis::Commands;
 
     fn get_conn() -> Connection {
         let client = redis::Client::open("redis://:snlan@www.snlan.top:6379/").unwrap();
@@ -139,6 +161,30 @@ mod tests {
         script.hmset("website".to_string(), &fv);
 
         let r1 = script.invoke(&con).unwrap();
-        assert_eq!(r1,1);
+        assert_eq!(r1, 1);
+    }
+
+    #[test]
+    fn test_lua_script_hset() {
+        let con = get_conn();
+        let mut script = super::LuaScript::new();
+
+        script.hset("website".to_string(), "name".to_string(), 12);
+
+        let r1 = script.invoke(&con).unwrap();
+        assert_eq!(r1, 1);
+    }
+
+    #[test]
+    fn test_lua_script_del() {
+        let con = get_conn();
+        let _:() = con.set("k1", 42).unwrap();
+        let _ :() = con.set("k2", "hello").unwrap();
+        let mut script = super::LuaScript::new();
+
+        script.del(&vec!["k1".to_string(), "k2".to_string()]);
+
+        let r1 = script.invoke(&con).unwrap();
+        assert_eq!(r1, 2);
     }
 }

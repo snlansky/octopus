@@ -104,7 +104,7 @@ pub fn set_hash_values(fv: &HashMap<String, Value>) -> HashMap<String, String> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use db::value::Value;
+    use dal::value::Value;
 
     #[test]
     fn test_set_hash_values() {

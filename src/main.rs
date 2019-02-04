@@ -1,9 +1,8 @@
 extern crate mysql;
 extern crate serde_json;
 use serde_json::{Value};
-mod db;
+mod dal;
 mod config;
-mod mem;
 
 
 

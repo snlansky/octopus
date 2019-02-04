@@ -97,6 +97,12 @@ impl LuaScript {
         self.statements.push(code);
     }
 
+    pub fn expire(&mut self, key :String, seconds:u64) {
+        self.push_key(key);
+        let code = format!("redis.call('EXPIRE', KEYS[{}], {})\n", self.key_index, seconds);
+        self.statements.push(code);
+    }
+
     pub fn invoke(&mut self, con: &Connection) -> Result<isize, redis::RedisError> {
         self.statements.push(format!("return {}", LUA_RET));
         let code = self.statements.join("\n");
@@ -207,6 +213,16 @@ mod tests {
 
         script.srem("name".to_string(), &vec!["lucy".to_string(), "alias".to_string(), "other".to_string()]);
 
+        let r1 = script.invoke(&con).unwrap();
+        assert_eq!(r1, 0);
+    }
+
+    #[test]
+    fn test_lua_script_expire() {
+        let con = get_conn();
+        let _: () = con.set("k1", 42).unwrap();
+        let mut script = super::LuaScript::new();
+        script.expire("k1".to_string(), 30);
         let r1 = script.invoke(&con).unwrap();
         assert_eq!(r1, 0);
     }

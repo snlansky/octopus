@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use super::value::Value;
+use redis::Connection;
+use dal::lua::LuaScript;
 
 #[allow(dead_code)]
 const METADATA: &str = "metadata";
@@ -77,13 +79,26 @@ impl Table {
     pub fn get_table_counter_key(&self) -> String {
         format!("{}:{}:{}:{}", self.db, self.model, METADATA, COUNTER)
     }
+
+    pub fn register_schema(&self, con: &Connection) -> Result<(), redis::RedisError> {
+        let mut script = LuaScript::new();
+        script.sadd(self.get_db_set_key(), &vec![self.model.clone()]);
+        let fv = self.fields.iter()
+            .map(|Field { name: n, tpe: t }| {
+                (n.clone(), t.clone())
+            })
+            .collect::<HashMap<_, _>>();
+        script.hmset(self.get_table_schema_key(), &fv);
+        script.invoke(con)?;
+        Ok(())
+    }
 }
 
 pub fn get_model_key(db_name: &String,
                      model_name: &String,
                      pk_list: &Vec<String>,
                      row: &HashMap<String, Value>) -> String {
-    let pv_list = pk_list.iter().map(|p|{
+    let pv_list = pk_list.iter().map(|p| {
         let value = row.get(p);
         if let Some(v) = value {
             v.to_string()
@@ -105,6 +120,8 @@ pub fn set_hash_values(fv: &HashMap<String, Value>) -> HashMap<String, String> {
 mod tests {
     use std::collections::HashMap;
     use dal::value::Value;
+    use dal::table::Table;
+    use dal::table::Field;
 
     #[test]
     fn test_set_hash_values() {
@@ -131,5 +148,28 @@ mod tests {
         row.insert(String::from("age"), Value::NegInt(12));
         row.insert(String::from("tel"), Value::String("129099101".to_string()));
         assert_eq!(super::get_model_key(&db_name, &model_name, &pl, &row), res);
+    }
+
+    #[test]
+    fn test_register_schema() {
+        let client = redis::Client::open("redis://:snlan@www.snlan.top:6379/").unwrap();
+        let con = client.get_connection().unwrap();
+        let table = Table {
+            db: "block".to_string(),
+            model: "user".to_string(),
+            pks: vec!["name".to_string(), "age".to_string()],
+            fields: vec![Field { name: "name".to_string(), tpe: "vchar".to_string() },
+                         Field { name: "age".to_string(), tpe: "int".to_string() },
+                         Field { name: "addr".to_string(), tpe: "text".to_string() },
+            ],
+        };
+
+        let ret = table.register_schema(&con);
+        match ret {
+            Err(e) =>{
+                panic!(e)
+            },
+            _ => {},
+        }
     }
 }

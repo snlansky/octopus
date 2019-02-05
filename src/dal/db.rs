@@ -71,9 +71,9 @@ impl DB {
         Ok(())
     }
 
-    pub fn get_conn(&mut self) -> PooledConn {
+    pub fn get_conn(&mut self) -> Result<PooledConn, Error> {
         self.counter += 1;
-        self.pool.get_conn().unwrap()
+        self.pool.get_conn()
     }
 
     pub fn release_conn(&mut self) {

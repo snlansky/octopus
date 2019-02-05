@@ -22,8 +22,8 @@ pub struct TableSchema {
 
 #[derive(Debug)]
 pub struct Field {
-    name: String,
-    tpe: String,
+    pub name: String,
+    pub tpe: String,
 }
 
 
@@ -78,6 +78,23 @@ impl Table {
     // 生成缓存对象访问计数键名
     pub fn get_table_counter_key(&self) -> String {
         format!("{}:{}:{}:{}", self.db, self.model, METADATA, COUNTER)
+    }
+
+    pub fn get_db(&self) ->String {
+        self.db.clone()
+    }
+
+    pub fn get_model(&self) ->String {
+        self.model.clone()
+    }
+
+    pub fn get_pks(&self) ->&Vec<String> {
+        &self.pks
+    }
+
+
+    pub fn get_fields(&self) ->&Vec<Field> {
+        &self.fields
     }
 
     pub fn register_schema(&self, con: &Connection) -> Result<(), redis::RedisError> {

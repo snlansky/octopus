@@ -1,12 +1,10 @@
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use mysql::Value;
 use mysql::Error as MyError;
 use serde_json::Value as Jvalue;
 use dal::db::DB;
 use dal::table::Table;
 use dal::error::Error as DalError;
-use std::sync::RwLockReadGuard;
-use std::error::Error;
 use std::rc::Rc;
 
 #[derive(Copy, Clone)]

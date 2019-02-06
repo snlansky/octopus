@@ -1,7 +1,3 @@
-use std::error;
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::fmt;
 use mysql::Error as MySqlError;
 use redis::RedisError;
 use serde_json::Error as JsonError;

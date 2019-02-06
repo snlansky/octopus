@@ -9,6 +9,7 @@ use self::redis::ErrorKind;
 use self::sha1::Sha1;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 const LUA_RET: &str = "total";
 
 pub struct LuaScript {

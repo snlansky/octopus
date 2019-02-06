@@ -72,7 +72,7 @@ impl SQLBuilder {
             Jvalue::Object(obj) => {
                 Ok(())
             }
-            _ => Err(DalError::JsonError("invalid json format".to_string())),
+            _ => Err(DalError::CommonError{info:"invalid json format".to_string()}),
         }
     }
     fn delete(&mut self) -> Result<(), DalError> {

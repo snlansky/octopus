@@ -50,6 +50,10 @@ impl Table {
         Table { db, model, pks, fields }
     }
 
+    pub fn default(db: String, model: String, pks: Vec<String>, fields: Vec<Field>) -> Table {
+        Table { db, model, pks, fields }
+    }
+
     // 生成缓存对象集合
     pub fn get_db_set_key(&self) -> String {
         format!("{}:{}:{}", self.db, METADATA, SET)
@@ -80,20 +84,20 @@ impl Table {
         format!("{}:{}:{}:{}", self.db, self.model, METADATA, COUNTER)
     }
 
-    pub fn get_db(&self) ->String {
+    pub fn get_db(&self) -> String {
         self.db.clone()
     }
 
-    pub fn get_model(&self) ->String {
+    pub fn get_model(&self) -> String {
         self.model.clone()
     }
 
-    pub fn get_pks(&self) ->&Vec<String> {
+    pub fn get_pks(&self) -> &Vec<String> {
         &self.pks
     }
 
 
-    pub fn get_fields(&self) ->&Vec<Field> {
+    pub fn get_fields(&self) -> &Vec<Field> {
         &self.fields
     }
 
@@ -183,10 +187,10 @@ mod tests {
 
         let ret = table.register_schema(&con);
         match ret {
-            Err(e) =>{
+            Err(e) => {
                 panic!(e)
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 }

@@ -125,8 +125,8 @@ impl DBManger {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_conn() {
+    fn get_db()->DB {
+
         let dbr = DBRoute {
             engine: String::from("Mysql"),
             user: String::from("snlan"),
@@ -134,9 +134,22 @@ mod tests {
             addr: String::from("www.snlan.top"),
             db: String::from("block"),
         };
-        let mut db = open_db(dbr).unwrap();
+        open_db(dbr).unwrap()
+
+    }
+
+    #[test]
+    fn test_conn() {
+        let mut db = get_db();
         let res = db.load_db().unwrap();
 
         println!("{:#?}", db.tables);
+    }
+
+    #[test]
+    fn test_open_db() {
+        let mut db = get_db();
+        let mut con = db.get_conn().unwrap();
+//        con.prep_exec()
     }
 }

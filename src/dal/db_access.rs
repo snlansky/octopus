@@ -6,8 +6,7 @@ use dal::table::Table;
 use dal::error::Error;
 use std::rc::Rc;
 
-#[derive(Copy, Clone)]
-pub enum Dml {
+pub enum DML {
     Insert,
     Delete,
     Update,
@@ -18,12 +17,12 @@ pub struct Access {
     tbl: Rc<Table>,
     sql: String,
     params: Vec<(String, MyValue)>,
-    dml: Dml,
+    dml: DML,
     body: JsValue,
 }
 
 impl Access {
-    pub fn new(tbl: Rc<Table>, dml: Dml, body: JsValue) -> Access {
+    pub fn new(tbl: Rc<Table>, dml: DML, body: JsValue) -> Access {
         Access {
             tbl,
             sql: String::new(),
@@ -41,7 +40,7 @@ impl Access {
         let qr = conn.prep_exec(self.sql.clone(), self.params.clone())?;
 
         match self.dml {
-            Dml::Select => {
+            DML::Select => {
                 let ts = qr.map(|x| x.unwrap())
                     .map(|row| {
                         println!("--{:#?}", row);
@@ -56,17 +55,16 @@ impl Access {
 
     fn build(&mut self) -> Result<(), Error> {
         match self.dml {
-            Dml::Insert => self.insert(),
-            Dml::Delete => self.delete(),
-            Dml::Update => self.update(),
-            Dml::Select => self.select(),
+            DML::Insert => self.insert(),
+            DML::Delete => self.delete(),
+            DML::Update => self.update(),
+            DML::Select => self.select(),
         }
     }
 
     fn insert(&mut self) -> Result<(), Error> {
         let values = self.body.get("values").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let fv_map = values.as_object().ok_or(Error::CommonError { info: "invalid json format at token 'values'".to_string() })?;
-
 
         let mut f_list: Vec<String> = Vec::new();
         let mut v_list: Vec<String> = Vec::new();
@@ -83,15 +81,14 @@ impl Access {
                     } else {
                         continue;
                     }
-                }
+                },
                 _ => continue,
             };
-            println!("-> {:?}", dbv.clone());
-            self.params.push((f.clone(), dbv));
-            f_list.push(f.clone());
-            v_list.push(format!(":{}", f.clone()));
+            f_list.push(format!("`{}`",f.clone()));
+            v_list.push(format!(":{}", f.clone().to_lowercase()));
+            self.params.push((f.clone().to_lowercase(), dbv));
         }
-        self.sql = format!("INSERT INTO {}({}) VALUES({})", self.tbl.get_model(), f_list.join(", "), v_list.join(", "));
+        self.sql = format!("INSERT INTO `{}` ({}) VALUES({})", self.tbl.get_model(), f_list.join(","), v_list.join(", "));
         println!("SQL->{}", self.sql);
         Ok(())
     }
@@ -115,7 +112,7 @@ mod tests {
     use dal::db_access::Access;
     use dal::table::Table;
     use dal::table::Field;
-    use dal::db_access::Dml;
+    use dal::db_access::DML;
     use std::rc::Rc;
     use dal::db::DB;
     use config::DBRoute;
@@ -123,10 +120,9 @@ mod tests {
     use std::sync::Arc;
     use std::sync::Mutex;
 
-    fn new(dml: Dml, body: Value) -> Access {
+    fn new(dml: DML, body: Value) -> Access {
         let db = "block".to_string();
         let model = "TbTestModel".to_string();
-        let model = "payment".to_string();
         let pks = vec!["RoleGuid".to_string(), "TwoKey".to_string()];
         let fields = vec![Field { name: "RoleGuid".to_string(), tpe: "varchar".to_string() },
                           Field { name: "TwoKey".to_string(), tpe: "int".to_string() },
@@ -155,11 +151,9 @@ mod tests {
     #[test]
     fn test_access_insert() {
         let data = r##"{"values":{"RoleGuid":"0000009b790008004b65fb","TwoKey":2,"CreateTime":"22:00:00","CreateDatetime":"2019-02-08","CreateDate":"2019-02-06 01:24:38","CreateTimestamp":1480580000}}"##;
-//        let data = r##"{"values":{"RoleGuid":"0000009b790008004b65fb","TwoKey":2}}"##;
-        let data = r##"{"values":{"customer_id":5,"amount":456,"account_name":"lucy"}}"##;
 
         let v: Value = serde_json::from_str(data).unwrap();
-        let mut access = new(Dml::Insert, v);
+        let mut access = new(DML::Insert, v);
 
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();
@@ -172,7 +166,7 @@ mod tests {
     fn test_access_update() {
         let data = r##"{"conditions":{"TwoKey__gte":9,"TwoKey__lte":1,"operator":"OR"},"values":{"CreateDate":"2017-02-23","CreateTimestamp":456}}"##;
         let v: Value = serde_json::from_str(data).unwrap();
-        let mut access = new(Dml::Update, v);
+        let mut access = new(DML::Update, v);
 
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();

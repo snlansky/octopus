@@ -1,10 +1,6 @@
 use mysql::Error as MySqlError;
 use redis::RedisError;
 use serde_json::Error as JsonError;
-use std::error;
-use std::sync::PoisonError;
-use std::sync::MutexGuard;
-use dal::db::DB;
 
 #[derive(Debug, Fail)]
 pub enum Error {

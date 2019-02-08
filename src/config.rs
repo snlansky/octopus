@@ -6,12 +6,3 @@ pub struct DBRoute {
     pub addr: String,
     pub db: String,
 }
-
-//impl Copy for DBRoute {
-//
-//}
-
-pub enum Engine {
-    Mysql,
-    Postgres,
-}

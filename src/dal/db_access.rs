@@ -69,7 +69,7 @@ impl Access {
         let mut f_list: Vec<String> = Vec::new();
         let mut v_list: Vec<String> = Vec::new();
         for (f, v) in fv_map {
-            let dbv = match v.clone() {
+            let dbv = match v {
                 JsValue::String(s) => MyValue::from(s),
                 JsValue::Number(n) => {
                     if n.is_f64() {
@@ -84,7 +84,7 @@ impl Access {
                 },
                 _ => continue,
             };
-            f_list.push(format!("`{}`",f.clone()));
+            f_list.push(format!("`{}`",f));
             v_list.push(format!(":{}", f.to_lowercase()));
             self.params.push((f.to_lowercase(), dbv));
         }

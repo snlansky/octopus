@@ -85,8 +85,8 @@ impl Access {
                 _ => continue,
             };
             f_list.push(format!("`{}`",f.clone()));
-            v_list.push(format!(":{}", f.clone().to_lowercase()));
-            self.params.push((f.clone().to_lowercase(), dbv));
+            v_list.push(format!(":{}", f.to_lowercase()));
+            self.params.push((f.to_lowercase(), dbv));
         }
         self.sql = format!("INSERT INTO `{}` ({}) VALUES({})", self.tbl.get_model(), f_list.join(","), v_list.join(", "));
         println!("SQL->{}", self.sql);

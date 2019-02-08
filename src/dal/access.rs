@@ -109,10 +109,10 @@ impl Access {
 mod tests {
     use serde_json::Value;
     use dal::error::Error as Error;
-    use dal::db_access::Access;
+    use dal::access::Access;
     use dal::table::Table;
     use dal::table::Field;
-    use dal::db_access::DML;
+    use dal::access::DML;
     use std::rc::Rc;
     use dal::db::DB;
     use config::DBRoute;

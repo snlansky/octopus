@@ -5,6 +5,9 @@ use dal::db::DB;
 use dal::table::Table;
 use dal::error::Error;
 use std::rc::Rc;
+use serde_json::Map;
+use serde_json::value::Index;
+use std::fmt::Display;
 
 pub enum DML {
     Insert,
@@ -34,6 +37,7 @@ impl Access {
 
     pub fn exec_sql(&mut self, db: Arc<Mutex<DB>>) -> Result<JsValue, Error> {
         self.build()?;
+        println!("SQL->{}", self.sql);
         let mut db = db.lock()
             .map_err(|e| Error::CommonError { info: format!("get db lock error: {:?}", e) })?;
         let mut conn = db.get_conn()?;
@@ -63,34 +67,41 @@ impl Access {
     }
 
     fn insert(&mut self) -> Result<(), Error> {
-        let values = self.body.get("values").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
-        let fv_map = values.as_object().ok_or(Error::CommonError { info: "invalid json format at token 'values'".to_string() })?;
+        let fv_map = self.get_map("values")?;
 
         let mut f_list: Vec<String> = Vec::new();
         let mut v_list: Vec<String> = Vec::new();
         for (f, v) in fv_map {
-            let dbv = match v {
-                JsValue::String(s) => MyValue::from(s),
-                JsValue::Number(n) => {
-                    if n.is_f64() {
-                        MyValue::from(n.as_f64().unwrap())
-                    } else if n.is_i64() {
-                        MyValue::from(n.as_i64().unwrap())
-                    } else if n.is_u64() {
-                        MyValue::from(n.as_u64().unwrap())
-                    } else {
-                        continue;
-                    }
-                },
-                _ => continue,
-            };
-            f_list.push(format!("`{}`",f));
-            v_list.push(format!(":{}", f.to_lowercase()));
-            self.params.push((f.to_lowercase(), dbv));
+            if let Some(dbv) = Self::conv_value(&v) {
+                f_list.push(format!("`{}`", f));
+                v_list.push(format!(":{}", f.to_lowercase()));
+                self.params_push(f.to_lowercase(), dbv);
+            }
         }
         self.sql = format!("INSERT INTO `{}` ({}) VALUES({})", self.tbl.get_model(), f_list.join(","), v_list.join(", "));
-        println!("SQL->{}", self.sql);
         Ok(())
+    }
+
+    fn params_push(&mut self, field: String, value: MyValue) {
+        self.params.push((field, value))
+    }
+
+    fn conv_value(v: &JsValue) -> Option<MyValue> {
+        match v {
+            JsValue::String(s) => Some(MyValue::from(s)),
+            JsValue::Number(n) => {
+                if n.is_f64() {
+                    Some(MyValue::from(n.as_f64().unwrap()))
+                } else if n.is_i64() {
+                    Some(MyValue::from(n.as_i64().unwrap()))
+                } else if n.is_u64() {
+                    Some(MyValue::from(n.as_u64().unwrap()))
+                } else {
+                    None
+                }
+            }
+            _ => None
+        }
     }
     fn delete(&mut self) -> Result<(), Error> {
         let statement = "DELETE FROM %s WHERE %s";
@@ -98,10 +109,134 @@ impl Access {
     }
     fn update(&mut self) -> Result<(), Error> {
         let statement = "UPDATE %s SET %s WHERE %s";
-        unimplemented!()
+        let fv_map = self.get_map("values")?;
+        let mut cdt_map = self.get_map("conditions")?;
+        let mut opr = String::new();
+        if let Some(val) = cdt_map.remove("operator") {
+            let opr_s = val.as_str().ok_or(Error::CommonError { info: format!("invalid format at token operator:{}", val) })?;
+            if opr_s == "AND" {
+                opr.push_str(" AND ");
+            } else if opr_s == "OR" {
+                opr.push_str(" OR ");
+            } else {
+                return Err(Error::CommonError { info: format!("invalid operator:{}", opr_s) });
+            }
+        }
+        let cdt = self.parse_op(&cdt_map)?;
+
+        let mut fmt_params = Vec::new();
+        for (f, v) in fv_map {
+            if let Some(dbv) = Self::conv_value(&v) {
+                fmt_params.push(format!("{} = :{}", f, f.to_lowercase()));
+                self.params_push(f.to_lowercase(), dbv);
+            }
+        }
+
+        if cdt.len() > 0 {
+            self.sql = format!("UPDATE {} SET {} WHERE {}", self.tbl.get_model(), fmt_params.join(", "), cdt.join(opr.as_str()));
+        } else {
+            self.sql = format!("UPDATE {} SET {}", self.tbl.get_model(), fmt_params.join(", "));
+        }
+
+        Ok(())
     }
     fn select(&mut self) -> Result<(), Error> {
         unimplemented!()
+    }
+
+
+    fn parse_op(&mut self, cdt: &Map<String, JsValue>) -> Result<Vec<String>, Error> {
+        let mut fmt_params: Vec<String> = Vec::new();
+
+        let mut set_params = |f: String, opt: Option<MyValue>| -> Result<(), Error> {
+            if let Some(_v) = opt {
+                self.params_push(f, _v);
+                Ok(())
+            } else {
+                Err(Error::CommonError { info: "invalid json format".to_string() })
+            }
+        };
+        let mut index = 0;
+        for (f, v) in cdt {
+            let key: Vec<&str> = f.split("__").collect();
+            if key.len() < 2 {
+                continue;
+            }
+            let mut param = f.clone();
+            let lower_f = format!("condition{}", index);
+            let value = Self::conv_value(v);
+            match key[1] {
+                "eq" => {
+                    param = format!("{} = :{}", key[0], lower_f);
+                    set_params(lower_f, value)?;
+                    index += 1;
+                }
+                "ne" => {
+                    param = format!("{} != :{}", key[0], lower_f);
+                    set_params(lower_f, value)?;
+                    index += 1;
+                }
+                "lt" => {
+                    param = format!("{} < :{}", key[0], lower_f);
+                    set_params(lower_f, value)?;
+                    index += 1;
+                }
+                "lte" => {
+                    param = format!("{} <= :{}", key[0], lower_f);
+                    set_params(lower_f, value)?;
+                    index += 1;
+                }
+                "gt" => {
+                    param = format!("{} > :{}", key[0], lower_f);
+                    set_params(lower_f, value)?;
+                    index += 1;
+                }
+                "gte" => {
+                    param = format!("{} >= :{}", key[0], lower_f);
+                    set_params(lower_f, value)?;
+                    index += 1;
+                }
+                "is" => {
+                    param = format!("{} IS NULL", key[0]);
+                }
+                "isnot" => {
+                    param = format!("{} IS NOT NULL", key[0]);
+                }
+                "in" => {
+                    if !v.is_array() {
+                        return Err(Error::CommonError { info: format!("invalid format at {}, it`s must json array", f) });
+                    }
+                    let list = v.as_array().unwrap().iter()
+                        .map(|f| Self::conv_value(f))
+                        .filter(|f| f.is_some())
+                        .map(|f| f.unwrap())
+                        .map(|f|f.as_sql(true))
+                        .collect::<Vec<_>>();
+                    if list.len() > 0 {
+                        param = format!("{} in ({})", key[0], list.join(","));
+                    }
+                }
+                "like" => {
+                    param = format!("{} LIKE :{}", key[0], lower_f);
+                    set_params(lower_f, value)?;
+                    index += 1;
+                }
+                _ => {
+                    return Err(Error::CommonError { info: format!("Unsupported operator {}", f) });
+                }
+            };
+            fmt_params.push(param);
+        }
+
+        Ok(fmt_params)
+    }
+
+    fn get_map<T>(&self, token: T) -> Result<Map<String, JsValue>, Error>
+        where
+            T: ToString + Display {
+        let values = self.body.get(token.to_string()).ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
+        let map = values.as_object().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", token) })?;
+        Ok(map.clone())
     }
 }
 
@@ -164,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_access_update() {
-        let data = r##"{"conditions":{"TwoKey__gte":9,"TwoKey__lte":1,"operator":"OR"},"values":{"CreateDate":"2017-02-23","CreateTimestamp":456}}"##;
+        let data = r##"{"conditions":{"TwoKey__gte":1,"TwoKey__lte":9, "TwoKey__in":[21,31],"operator":"OR", "RoleGuid__like":"%9b%"},"values":{"CreateDate":"2017-02-23","CreateTimestamp":123}}"##;
         let v: Value = serde_json::from_str(data).unwrap();
         let mut access = new(DML::Update, v);
 

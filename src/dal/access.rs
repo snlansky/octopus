@@ -8,6 +8,8 @@ use std::rc::Rc;
 use serde_json::Map;
 use serde_json::value::Index;
 use std::fmt::Display;
+use mysql::Row;
+use std::collections::HashMap;
 
 pub enum DML {
     Insert,
@@ -43,12 +45,12 @@ impl Access {
         let mut conn = db.get_conn()?;
         let qr = conn.prep_exec(self.sql.clone(), self.params.clone())?;
 
+        use std::ops::Index;
         match self.dml {
             DML::Select => {
                 let ts = qr.map(|x| x.unwrap())
                     .map(|row| {
-                        println!("--{:#?}", row);
-                        row
+                        Self::parse_row(row)
                     })
                     .collect::<Vec<_>>();
                 Ok(JsValue::from(1))
@@ -103,22 +105,24 @@ impl Access {
             _ => None
         }
     }
+
     fn delete(&mut self) -> Result<(), Error> {
-        let mut cdt_map = self.body.as_object().ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
-        let opr = Self::extra_opr(&mut cdt_map)?;
-        let cdt = self.parse_op(&cdt_map)?;
-        if cdt.len() > 0 {
-            self.sql = format!("DELETE FROM {} WHERE {}", self.tbl.get_model(), cdt.join(opr.as_str()));
+        let mut cond_map = self.body.as_object().ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
+        let opr = Self::extra_opr(&mut cond_map)?;
+        let cond = self.parse_op(&cond_map)?;
+        if cond.len() > 0 {
+            self.sql = format!("DELETE FROM {} WHERE {}", self.tbl.get_model(), cond.join(opr.as_str()));
         } else {
             self.sql = format!("DELETE FROM {}", self.tbl.get_model());
         }
         Ok(())
     }
+
     fn update(&mut self) -> Result<(), Error> {
         let fv_map = self.get_map("values")?;
-        let mut cdt_map = self.get_map("conditions")?;
-        let opr = Self::extra_opr(&mut cdt_map)?;
-        let cdt = self.parse_op(&cdt_map)?;
+        let mut cond_map = self.get_map("conditions")?;
+        let opr = Self::extra_opr(&mut cond_map)?;
+        let cond = self.parse_op(&cond_map)?;
 
         let mut fmt_params = Vec::new();
         for (f, v) in fv_map {
@@ -128,8 +132,8 @@ impl Access {
             }
         }
 
-        if cdt.len() > 0 {
-            self.sql = format!("UPDATE {} SET {} WHERE {}", self.tbl.get_model(), fmt_params.join(", "), cdt.join(opr.as_str()));
+        if cond.len() > 0 {
+            self.sql = format!("UPDATE {} SET {} WHERE {}", self.tbl.get_model(), fmt_params.join(", "), cond.join(opr.as_str()));
         } else {
             self.sql = format!("UPDATE {} SET {}", self.tbl.get_model(), fmt_params.join(", "));
         }
@@ -151,12 +155,35 @@ impl Access {
         }
         Ok(opr)
     }
+
     fn select(&mut self) -> Result<(), Error> {
-        unimplemented!()
+        let mut where_clause: Vec<String> = Vec::new();
+
+        let mut query = self.body.as_object().ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
+        let opr = Self::extra_opr(&mut query)?;
+        if let Some(v) = query.remove("order") {
+            let orders = v.as_str().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", "order") })?;
+            where_clause.push(format!("ORDER BY {}", orders.replace("__", " ")));
+        }
+        if let Some(v) = query.remove("limit") {
+            let limit = v.as_i64().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", "limit") })?;
+            where_clause.push(format!("LIMIT {}", limit));
+            if let Some(v) = query.remove("offset") {
+                let offset = v.as_i64().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", "offset") })?;
+                where_clause.push(format!("OFFSET {}", offset));
+            }
+        }
+        let cond = self.parse_op(&query)?;
+        let columns = self.tbl.get_fields().iter().map(|f| f.name.clone()).collect::<Vec<_>>();
+        if cond.len() + where_clause.len() > 0 {
+            self.sql = format!("SELECT {} FROM {} WHERE {} {}", columns.join(", "), self.tbl.get_model(), cond.join(opr.as_str()), where_clause.join(" "));
+        } else {
+            self.sql = format!("SELECT {} FROM {}", columns.join(", "), self.tbl.get_model());
+        }
+        Ok(())
     }
 
-
-    fn parse_op(&mut self, cdt: &Map<String, JsValue>) -> Result<Vec<String>, Error> {
+    fn parse_op(&mut self, cond: &Map<String, JsValue>) -> Result<Vec<String>, Error> {
         let mut fmt_params: Vec<String> = Vec::new();
 
         let mut set_params = |f: String, opt: Option<MyValue>| -> Result<(), Error> {
@@ -168,13 +195,13 @@ impl Access {
             }
         };
         let mut index = 0;
-        for (f, v) in cdt {
+        for (f, v) in cond {
             let key: Vec<&str> = f.split("__").collect();
             if key.len() < 2 {
                 continue;
             }
             let mut param = f.clone();
-            let lower_f = format!("condition{}", index);
+            let lower_f = format!("cond{}", index);
             let value = Self::conv_value(v);
             match key[1] {
                 "eq" => {
@@ -221,7 +248,7 @@ impl Access {
                         .map(|f| Self::conv_value(f))
                         .filter(|f| f.is_some())
                         .map(|f| f.unwrap())
-                        .map(|f|f.as_sql(true))
+                        .map(|f| f.as_sql(true))
                         .collect::<Vec<_>>();
                     if list.len() > 0 {
                         param = format!("{} in ({})", key[0], list.join(","));
@@ -248,6 +275,17 @@ impl Access {
         let values = self.body.get(token.to_string()).ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let map = values.as_object().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", token) })?;
         Ok(map.clone())
+    }
+
+    fn parse_row(row: Row) -> HashMap<String, MyValue> {
+        let mut map: HashMap<String, MyValue> = HashMap::with_capacity(row.len());
+        for (i, c) in row.columns().iter().enumerate() {
+            let v = row.as_ref(i);
+            if let Some(v) = v {
+                map.insert(c.name_str().as_ref().to_string(), v.clone());
+            }
+        }
+        return map;
     }
 }
 
@@ -326,6 +364,19 @@ mod tests {
         let data = r##"{"conditions":{"TwoKey__gte":1,"TwoKey__lte":9, "TwoKey__in":[21,31],"operator":"OR", "RoleGuid__like":"%9b%"},"values":{"CreateDate":"2017-02-23","CreateTimestamp":123}}"##;
         let v: Value = serde_json::from_str(data).unwrap();
         let mut access = new(DML::Update, v);
+
+        let db = Arc::new(Mutex::new(get_db()));
+        let exec_res = access.exec_sql(db).unwrap();
+
+        println!("{}", exec_res);
+        panic!("F")
+    }
+
+    #[test]
+    fn test_access_select() {
+        let data = r##"{"TwoKey__eq":3,"limit":3,"operator":"AND","order":"TwoKey__DESC,CreateTimestamp__ASC"}"##;
+        let v: Value = serde_json::from_str(data).unwrap();
+        let mut access = new(DML::Select, v);
 
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();

@@ -104,24 +104,20 @@ impl Access {
         }
     }
     fn delete(&mut self) -> Result<(), Error> {
-        let statement = "DELETE FROM %s WHERE %s";
-        unimplemented!()
+        let mut cdt_map = self.body.as_object().ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
+        let opr = Self::extra_opr(&mut cdt_map)?;
+        let cdt = self.parse_op(&cdt_map)?;
+        if cdt.len() > 0 {
+            self.sql = format!("DELETE FROM {} WHERE {}", self.tbl.get_model(), cdt.join(opr.as_str()));
+        } else {
+            self.sql = format!("DELETE FROM {}", self.tbl.get_model());
+        }
+        Ok(())
     }
     fn update(&mut self) -> Result<(), Error> {
-        let statement = "UPDATE %s SET %s WHERE %s";
         let fv_map = self.get_map("values")?;
         let mut cdt_map = self.get_map("conditions")?;
-        let mut opr = String::new();
-        if let Some(val) = cdt_map.remove("operator") {
-            let opr_s = val.as_str().ok_or(Error::CommonError { info: format!("invalid format at token operator:{}", val) })?;
-            if opr_s == "AND" {
-                opr.push_str(" AND ");
-            } else if opr_s == "OR" {
-                opr.push_str(" OR ");
-            } else {
-                return Err(Error::CommonError { info: format!("invalid operator:{}", opr_s) });
-            }
-        }
+        let opr = Self::extra_opr(&mut cdt_map)?;
         let cdt = self.parse_op(&cdt_map)?;
 
         let mut fmt_params = Vec::new();
@@ -139,6 +135,21 @@ impl Access {
         }
 
         Ok(())
+    }
+
+    fn extra_opr(map: &mut Map<String, JsValue>) -> Result<String, Error> {
+        let mut opr = String::new();
+        if let Some(val) = map.remove("operator") {
+            let opr_s = val.as_str().ok_or(Error::CommonError { info: format!("invalid format at token operator:{}", val) })?;
+            if opr_s == "AND" {
+                opr.push_str(" AND ");
+            } else if opr_s == "OR" {
+                opr.push_str(" OR ");
+            } else {
+                return Err(Error::CommonError { info: format!("invalid operator:{}", opr_s) });
+            }
+        }
+        Ok(opr)
     }
     fn select(&mut self) -> Result<(), Error> {
         unimplemented!()
@@ -289,6 +300,19 @@ mod tests {
 
         let v: Value = serde_json::from_str(data).unwrap();
         let mut access = new(DML::Insert, v);
+
+        let db = Arc::new(Mutex::new(get_db()));
+        let exec_res = access.exec_sql(db).unwrap();
+
+        println!("{}", exec_res);
+        panic!("F")
+    }
+
+    #[test]
+    fn test_access_delete() {
+        let data = r##"{"RoleGuid__eq":"0000009b790008004b65fb","TwoKey__eq":2,"operator":"AND"}"##;
+        let v: Value = serde_json::from_str(data).unwrap();
+        let mut access = new(DML::Delete, v);
 
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();

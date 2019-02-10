@@ -18,7 +18,7 @@ pub enum DML {
     Select,
 }
 
-pub struct Access {
+pub struct Dao {
     tbl: Rc<Table>,
     sql: String,
     params: Vec<(String, MyValue)>,
@@ -26,9 +26,9 @@ pub struct Access {
     body: JsValue,
 }
 
-impl Access {
-    pub fn new(tbl: Rc<Table>, dml: DML, body: JsValue) -> Access {
-        Access {
+impl Dao {
+    pub fn new(tbl: Rc<Table>, dml: DML, body: JsValue) -> Dao {
+        Dao {
             tbl,
             sql: String::new(),
             params: Vec::new(),
@@ -312,10 +312,10 @@ impl Access {
 mod tests {
     use serde_json::Value;
     use dal::error::Error as Error;
-    use dal::access::Access;
+    use dal::dao::Dao;
     use dal::table::Table;
     use dal::table::Field;
-    use dal::access::DML;
+    use dal::dao::DML;
     use std::rc::Rc;
     use dal::db::DB;
     use config::DBRoute;
@@ -323,7 +323,7 @@ mod tests {
     use std::sync::Arc;
     use std::sync::Mutex;
 
-    fn new(dml: DML, body: Value) -> Access {
+    fn new(dml: DML, body: Value) -> Dao {
         let db = "block".to_string();
         let model = "TbTestModel".to_string();
         let pks = vec!["RoleGuid".to_string(), "TwoKey".to_string()];
@@ -336,7 +336,7 @@ mod tests {
         ];
         let table = Table::default(db, model, pks, fields);
 
-        Access::new(Rc::new(table), dml, body)
+        Dao::new(Rc::new(table), dml, body)
     }
 
 

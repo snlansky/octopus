@@ -21,3 +21,9 @@ impl From<MySqlError> for Error {
         Error::DBError(e)
     }
 }
+
+impl From<RedisError> for Error {
+    fn from(e: RedisError) -> Self {
+        Error::MemError(e)
+    }
+}

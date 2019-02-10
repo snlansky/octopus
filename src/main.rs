@@ -4,6 +4,7 @@ extern crate serde_json;
 extern crate redis;
 #[macro_use]
 extern crate failure;
+extern crate core;
 
 use serde_json::{Value};
 mod dal;

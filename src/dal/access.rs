@@ -52,8 +52,9 @@ impl Access {
                     .map(|row| {
                         Self::parse_row(row)
                     })
+                    .map(|f|Self::map2js(f))
                     .collect::<Vec<_>>();
-                Ok(JsValue::from(1))
+                Ok(JsValue::Array(ts))
             }
             _ => Ok(JsValue::from(qr.affected_rows() as f64)),
         }
@@ -69,46 +70,24 @@ impl Access {
     }
 
     fn insert(&mut self) -> Result<(), Error> {
-        let fv_map = self.get_map("values")?;
+        let fv_map = self.get_js("values")?;
 
         let mut f_list: Vec<String> = Vec::new();
         let mut v_list: Vec<String> = Vec::new();
         for (f, v) in fv_map {
-            if let Some(dbv) = Self::conv_value(&v) {
+            if let Some(dbv) = Self::js2my(&v) {
                 f_list.push(format!("`{}`", f));
                 v_list.push(format!(":{}", f.to_lowercase()));
-                self.params_push(f.to_lowercase(), dbv);
+                self.padd(f.to_lowercase(), dbv);
             }
         }
         self.sql = format!("INSERT INTO `{}` ({}) VALUES({})", self.tbl.get_model(), f_list.join(","), v_list.join(", "));
         Ok(())
     }
 
-    fn params_push(&mut self, field: String, value: MyValue) {
-        self.params.push((field, value))
-    }
-
-    fn conv_value(v: &JsValue) -> Option<MyValue> {
-        match v {
-            JsValue::String(s) => Some(MyValue::from(s)),
-            JsValue::Number(n) => {
-                if n.is_f64() {
-                    Some(MyValue::from(n.as_f64().unwrap()))
-                } else if n.is_i64() {
-                    Some(MyValue::from(n.as_i64().unwrap()))
-                } else if n.is_u64() {
-                    Some(MyValue::from(n.as_u64().unwrap()))
-                } else {
-                    None
-                }
-            }
-            _ => None
-        }
-    }
-
     fn delete(&mut self) -> Result<(), Error> {
         let mut cond_map = self.body.as_object().ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
-        let opr = Self::extra_opr(&mut cond_map)?;
+        let opr = Self::extra_op(&mut cond_map)?;
         let cond = self.parse_op(&cond_map)?;
         if cond.len() > 0 {
             self.sql = format!("DELETE FROM {} WHERE {}", self.tbl.get_model(), cond.join(opr.as_str()));
@@ -119,16 +98,16 @@ impl Access {
     }
 
     fn update(&mut self) -> Result<(), Error> {
-        let fv_map = self.get_map("values")?;
-        let mut cond_map = self.get_map("conditions")?;
-        let opr = Self::extra_opr(&mut cond_map)?;
+        let fv_map = self.get_js("values")?;
+        let mut cond_map = self.get_js("conditions")?;
+        let opr = Self::extra_op(&mut cond_map)?;
         let cond = self.parse_op(&cond_map)?;
 
         let mut fmt_params = Vec::new();
         for (f, v) in fv_map {
-            if let Some(dbv) = Self::conv_value(&v) {
+            if let Some(dbv) = Self::js2my(&v) {
                 fmt_params.push(format!("{} = :{}", f, f.to_lowercase()));
-                self.params_push(f.to_lowercase(), dbv);
+                self.padd(f.to_lowercase(), dbv);
             }
         }
 
@@ -141,26 +120,11 @@ impl Access {
         Ok(())
     }
 
-    fn extra_opr(map: &mut Map<String, JsValue>) -> Result<String, Error> {
-        let mut opr = String::new();
-        if let Some(val) = map.remove("operator") {
-            let opr_s = val.as_str().ok_or(Error::CommonError { info: format!("invalid format at token operator:{}", val) })?;
-            if opr_s == "AND" {
-                opr.push_str(" AND ");
-            } else if opr_s == "OR" {
-                opr.push_str(" OR ");
-            } else {
-                return Err(Error::CommonError { info: format!("invalid operator:{}", opr_s) });
-            }
-        }
-        Ok(opr)
-    }
-
     fn select(&mut self) -> Result<(), Error> {
         let mut where_clause: Vec<String> = Vec::new();
 
         let mut query = self.body.as_object().ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
-        let opr = Self::extra_opr(&mut query)?;
+        let opr = Self::extra_op(&mut query)?;
         if let Some(v) = query.remove("order") {
             let orders = v.as_str().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", "order") })?;
             where_clause.push(format!("ORDER BY {}", orders.replace("__", " ")));
@@ -183,12 +147,16 @@ impl Access {
         Ok(())
     }
 
+    fn padd(&mut self, field: String, value: MyValue) {
+        self.params.push((field, value))
+    }
+
     fn parse_op(&mut self, cond: &Map<String, JsValue>) -> Result<Vec<String>, Error> {
         let mut fmt_params: Vec<String> = Vec::new();
 
         let mut set_params = |f: String, opt: Option<MyValue>| -> Result<(), Error> {
             if let Some(_v) = opt {
-                self.params_push(f, _v);
+                self.padd(f, _v);
                 Ok(())
             } else {
                 Err(Error::CommonError { info: "invalid json format".to_string() })
@@ -202,7 +170,7 @@ impl Access {
             }
             let mut param = f.clone();
             let lower_f = format!("cond{}", index);
-            let value = Self::conv_value(v);
+            let value = Self::js2my(v);
             match key[1] {
                 "eq" => {
                     param = format!("{} = :{}", key[0], lower_f);
@@ -245,7 +213,7 @@ impl Access {
                         return Err(Error::CommonError { info: format!("invalid format at {}, it`s must json array", f) });
                     }
                     let list = v.as_array().unwrap().iter()
-                        .map(|f| Self::conv_value(f))
+                        .map(|f| Self::js2my(f))
                         .filter(|f| f.is_some())
                         .map(|f| f.unwrap())
                         .map(|f| f.as_sql(true))
@@ -269,7 +237,22 @@ impl Access {
         Ok(fmt_params)
     }
 
-    fn get_map<T>(&self, token: T) -> Result<Map<String, JsValue>, Error>
+    fn extra_op(map: &mut Map<String, JsValue>) -> Result<String, Error> {
+        let mut opr = String::new();
+        if let Some(val) = map.remove("operator") {
+            let opr_s = val.as_str().ok_or(Error::CommonError { info: format!("invalid format at token operator:{}", val) })?;
+            if opr_s == "AND" {
+                opr.push_str(" AND ");
+            } else if opr_s == "OR" {
+                opr.push_str(" OR ");
+            } else {
+                return Err(Error::CommonError { info: format!("invalid operator:{}", opr_s) });
+            }
+        }
+        Ok(opr)
+    }
+
+    fn get_js<T>(&self, token: T) -> Result<Map<String, JsValue>, Error>
         where
             T: ToString + Display {
         let values = self.body.get(token.to_string()).ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
@@ -286,6 +269,42 @@ impl Access {
             }
         }
         return map;
+    }
+
+    fn map2js(map: HashMap<String, MyValue>) -> JsValue {
+        let mut m = Map::new();
+        for (k,v) in map {
+            m.insert(k, Self::my2js(v));
+        }
+        return JsValue::Object(m);
+    }
+
+    fn js2my(v: &JsValue) -> Option<MyValue> {
+        match v {
+            JsValue::String(s) => Some(MyValue::from(s)),
+            JsValue::Number(n) => {
+                if n.is_f64() {
+                    Some(MyValue::from(n.as_f64().unwrap()))
+                } else if n.is_i64() {
+                    Some(MyValue::from(n.as_i64().unwrap()))
+                } else if n.is_u64() {
+                    Some(MyValue::from(n.as_u64().unwrap()))
+                } else {
+                    None
+                }
+            }
+            _ => None
+        }
+    }
+
+    fn my2js(v: MyValue) -> JsValue {
+        match v {
+            MyValue::Float(f) => json!(f),
+            MyValue::Int(i) => json!(i),
+            MyValue::UInt(u) => json!(u),
+            MyValue::NULL => json!(null),
+            _ => json!(v.as_sql(false).replace("'","")),
+        }
     }
 }
 
@@ -343,7 +362,6 @@ mod tests {
         let exec_res = access.exec_sql(db).unwrap();
 
         println!("{}", exec_res);
-        panic!("F")
     }
 
     #[test]
@@ -356,7 +374,6 @@ mod tests {
         let exec_res = access.exec_sql(db).unwrap();
 
         println!("{}", exec_res);
-        panic!("F")
     }
 
     #[test]
@@ -369,7 +386,6 @@ mod tests {
         let exec_res = access.exec_sql(db).unwrap();
 
         println!("{}", exec_res);
-        panic!("F")
     }
 
     #[test]
@@ -382,6 +398,5 @@ mod tests {
         let exec_res = access.exec_sql(db).unwrap();
 
         println!("{}", exec_res);
-        panic!("F")
     }
 }

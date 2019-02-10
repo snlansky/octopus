@@ -1,4 +1,5 @@
 extern crate mysql;
+#[macro_use]
 extern crate serde_json;
 extern crate redis;
 #[macro_use]

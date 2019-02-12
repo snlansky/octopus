@@ -316,10 +316,10 @@ mod tests {
     use dal::dao::DML;
     use std::rc::Rc;
     use dal::db::DB;
-    use config::DBRoute;
     use dal::db::open_db;
     use std::sync::Arc;
     use std::sync::Mutex;
+    use config::config::DBRoute;
 
     fn new(dml: DML, body: Value) -> Dao {
         let db = "block".to_string();

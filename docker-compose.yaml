@@ -1,0 +1,90 @@
+version: '3'
+services:
+  mysql:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=block
+      - MYSQL_USER=snlan
+      - MYSQL_PASSWORD=snlan
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+  consul:
+    image: "consul"
+    command: ["agent", "-dev", "-ui", "-client", "0.0.0.0"]
+    ports:
+      - "8500:8500"
+  redis:
+    image: redis
+    command: redis-server --requirepass snlan
+    ports:
+      - "6379:6379"
+
+  fluentd:
+    image: fluent/fluentd
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    volumes:
+      - /home/fluentd/log:/fluentd/log
+      -
+  zoo1:
+    image: zookeeper
+    restart: always
+    container_name: zoo1
+    ports:
+      - '2181:2181'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+
+  zoo2:
+    image: zookeeper
+    restart: always
+    container_name: zoo2
+    ports:
+      - '2182:2181'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    environment:
+      ZOO_MY_ID: 2
+      ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+
+  zoo3:
+    image: zookeeper
+    restart: always
+    container_name: zoo3
+    ports:
+      - '2183:2181'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    environment:
+      ZOO_MY_ID: 3
+      ZOO_SERVERS: server.1=zoo1:2888:3888 server.2=zoo2:2888:3888 server.3=zoo3:2888:3888
+  zkui:
+    image: zkui
+    container_name: zkui
+    ports:
+      - '9090:9090'
+    environment:
+      - ZK_SERVER=zoo1:2181,zoo2:2181,zoo3:2181
+    links:
+      - zoo1:zoo1
+      - zoo2:zoo2
+      - zoo3:zoo3[root@VM_29_13_centos zkui]#
+
+volumes:
+  mysql-data:

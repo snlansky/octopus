@@ -5,8 +5,8 @@ use dal::table::Table;
 use std::sync::Mutex;
 use redis::Connection;
 use std::sync::Arc;
-use core::borrow::Borrow;
 use std::sync::MutexGuard;
+use config::config::MemRoute;
 
 pub struct Mem {
     record: HashMap<String, Vec<String>>,
@@ -33,5 +33,16 @@ impl Mem {
         let conn = self.get_conn()?;
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
+
+    // 在cache中注册模式
+    pub fn register_schema(&self, tbl: &Table) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
+
+pub fn open_client(route: MemRoute) -> Result<Connection, Error> {
+    let url = format!("redis://:{}@{}:{}/", route.pass, route.host, route.port);
+    let client = redis::Client::open(url.as_str())?;
+    client.get_connection().map_err(|e| Error::from(e))
+}

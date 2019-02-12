@@ -1,40 +1,22 @@
+extern crate redis;
 extern crate mysql;
 #[macro_use]
 extern crate serde_json;
-extern crate redis;
 #[macro_use]
 extern crate failure;
 extern crate core;
+extern crate zookeeper;
 
-use serde_json::{Value};
+use serde_json::Value;
+use config::config::init;
+use config::config::ConfigType;
+
 mod dal;
 mod config;
-
+mod service_discovery;
 
 
 fn main() {
-//    let data = r#"{"age":12,"name":"lucy"}"#;
-    let data = "[12,23,56]";
-    let v :Value= serde_json::from_str(data).unwrap();
-    println!("Please call {} at the number {}", v["age"], v["name"]);
-    match  &v {
-        Value::Null => println!("null"),
-        Value::Bool(b) => println!("bool {}", b),
-        Value::Number(num) => println!("number {}", num),
-        Value::String(s) => println!("string {}", s),
-        Value::Array(v)=>println!("array {:?}", v),
-        Value::Object(m)=> {
-            for (k, v) in m {
-                println!("map {} {:?}", k, v);
-            }
-        }
-    }
-
-    if let Value::Object(m) = v {
-        for (k, v) in m {
-            println!("map {} {:?}", k, v);
-        }
-    }
-
+    init("service.json".to_string(), ConfigType::Json);
 }
 

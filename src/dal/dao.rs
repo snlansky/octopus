@@ -6,7 +6,6 @@ use dal::table::Table;
 use dal::error::Error;
 use std::rc::Rc;
 use serde_json::Map;
-use serde_json::value::Index;
 use std::fmt::Display;
 use mysql::Row;
 use std::collections::HashMap;
@@ -45,7 +44,6 @@ impl Dao {
         let mut conn = db.get_conn()?;
         let qr = conn.prep_exec(self.sql.clone(), self.params.clone())?;
 
-        use std::ops::Index;
         match self.dml {
             DML::Select => {
                 let ts = qr.map(|x| x.unwrap())

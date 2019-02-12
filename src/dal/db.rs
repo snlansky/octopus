@@ -1,14 +1,15 @@
 use std::collections::HashMap;
-use mysql::{PooledConn, Error, Pool, Value};
-use config::DBRoute;
+use mysql::{PooledConn, Pool, Value};
+use config::config::DBRoute;
 use dal::table::{Table, TableSchema};
+use redis::Connection;
+use dal::error::Error;
 
 #[allow(dead_code)]
 pub struct DB {
     db_name: String,
     pool: Pool,
     pub tables: HashMap<String, Table>,
-    counter: u64,
 }
 
 #[allow(dead_code)]
@@ -18,10 +19,10 @@ impl DB {
             db_name: name,
             pool,
             tables: HashMap::new(),
-            counter: 0,
         }
     }
 
+    // 创建新的数据库链接尝试启动注册模式
     pub fn load_db(&mut self) -> Result<(), Error> {
         let sql = "SELECT TABLE_NAME \
         FROM information_schema.TABLES \
@@ -44,6 +45,7 @@ impl DB {
         Ok(())
     }
 
+    // 查询时发现缓存中表不存在尝试更新
     pub fn load_table(&mut self, table_name: String) -> Result<(), Error> {
         let sql = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_KEY
         FROM information_schema.COLUMNS
@@ -71,13 +73,11 @@ impl DB {
         Ok(())
     }
 
-    pub fn get_conn(&mut self) -> Result<PooledConn, Error> {
-        self.counter += 1;
-        self.pool.get_conn()
-    }
 
-    pub fn release_conn(&mut self) {
-        self.counter -= 1;
+
+    pub fn get_conn(&mut self) -> Result<PooledConn, Error> {
+        let conn = self.pool.get_conn()?;
+        Ok(conn)
     }
 
     pub fn close(&self) {
@@ -90,7 +90,7 @@ pub fn open_db(cfg: DBRoute) -> Result<DB, Error> {
     let addr = format!("mysql://{}:{}@{}/{}", cfg.user, cfg.pass, cfg.addr, cfg.db);
     match Pool::new(addr) {
         Ok(pool) => Ok(DB::new(cfg.db, pool)),
-        Err(err) => Err(err),
+        Err(err) => Err(Error::from(err)),
     }
 }
 

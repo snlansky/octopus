@@ -1,0 +1,29 @@
+{
+  "Port": 8000,
+  "Data": {
+    "block": {
+      "DB": {
+        "Engine": "mysql",
+        "User": "snlan",
+        "Passwd": "snlan",
+        "Address": "www.snlan.top",
+        "Port": 3306,
+        "Name": "block"
+      },
+      "Mem": {
+        "Host": "www.snlan.top",
+        "Port": 6379,
+        "DB": 0,
+        "Expire": 3600,
+        "Auth": "snlan"
+      }
+    }
+  },
+  "Log": {
+    "FluentHost": "www.snlan.top",
+    "FluentPort": 24224,
+    "FluentTag": "chaos_orm",
+    "LogPrefix": "chaos_orm"
+  },
+  "Timeout": 1000
+}

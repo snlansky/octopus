@@ -6,3 +6,4 @@ pub mod dao;
 pub mod error;
 pub mod adapter;
 pub mod mem;
+pub mod utils;

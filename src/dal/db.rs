@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use mysql::{PooledConn, Pool, Value};
 use config::config::DBRoute;
 use dal::table::{Table, TableSchema};
-use redis::Connection;
 use dal::error::Error;
 
 #[allow(dead_code)]

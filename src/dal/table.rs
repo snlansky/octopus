@@ -1,7 +1,9 @@
 use std::collections::HashMap;
-use super::value::Value;
+//use super::value::Value;
 use redis::Connection;
 use dal::lua::LuaScript;
+use serde_json::Value as JsValue;
+use dal::utils::js2string;
 
 #[allow(dead_code)]
 const METADATA: &str = "metadata";
@@ -101,6 +103,19 @@ impl Table {
         &self.fields
     }
 
+    pub fn get_model_key(&self, row: &HashMap<String, JsValue>) -> String {
+        let pv_list = self.pks.iter().map(|p| {
+            let value = row.get(p);
+            if let Some(v) = value {
+                format!("{}", js2string(v))
+            } else {
+                "".to_string()
+            }
+        }).collect::<Vec<_>>();
+
+        format!("{}:{}:{}:{}", self.db, self.model, self.pks.join(FIELD_SEP), pv_list.join(FIELD_SEP))
+    }
+
     pub fn register_schema(&self, con: &Connection) -> Result<(), redis::RedisError> {
         let mut script = LuaScript::new();
         script.sadd(self.get_db_set_key(), vec![self.model.clone()]);
@@ -115,23 +130,8 @@ impl Table {
     }
 }
 
-pub fn get_model_key(db_name: &String,
-                     model_name: &String,
-                     pk_list: &Vec<String>,
-                     row: &HashMap<String, Value>) -> String {
-    let pv_list = pk_list.iter().map(|p| {
-        let value = row.get(p);
-        if let Some(v) = value {
-            v.to_string()
-        } else {
-            "".to_string()
-        }
-    }).collect::<Vec<_>>();
 
-    format!("{}:{}:{}:{}", db_name, model_name, pk_list.join(FIELD_SEP), pv_list.join(FIELD_SEP))
-}
-
-pub fn set_hash_values(fv: &HashMap<String, Value>) -> HashMap<String, String> {
+pub fn set_hash_values(fv: &HashMap<String, JsValue>) -> HashMap<String, String> {
     fv.iter().map(|(k, v)| {
         (k.clone(), v.to_string())
     }).collect::<HashMap<String, String>>()
@@ -140,17 +140,17 @@ pub fn set_hash_values(fv: &HashMap<String, Value>) -> HashMap<String, String> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use dal::value::Value;
     use dal::table::Table;
     use dal::table::Field;
+    use serde_json::Value as JsValue;
 
     #[test]
     fn test_set_hash_values() {
-        let mut hash: HashMap<String, Value> = HashMap::new();
-        hash.insert(String::from("k1"), Value::NegInt(12));
-        hash.insert(String::from("k2"), Value::Float(23.5));
-        hash.insert(String::from("k3"), Value::String(String::from("hello")));
-        hash.insert(String::from("k4"), Value::Bool(true));
+        let mut hash: HashMap<String, JsValue> = HashMap::new();
+        hash.insert(String::from("k1"), json!(12));
+        hash.insert(String::from("k2"), json!(23.5));
+        hash.insert(String::from("k3"), json!("hello"));
+        hash.insert(String::from("k4"), json!(true));
 
         let new = super::set_hash_values(&hash);
         for (k, v) in &new {
@@ -160,15 +160,17 @@ mod tests {
 
     #[test]
     fn test_get_model_key() {
+
         let res = String::from("daqing:user_table:name,age:lucy,12");
         let db_name = String::from("daqing");
         let model_name = String::from("user_table");
         let pl = vec![String::from("name"), String::from("age")];
         let mut row = HashMap::new();
-        row.insert(String::from("name"), Value::String("lucy".to_string()));
-        row.insert(String::from("age"), Value::NegInt(12));
-        row.insert(String::from("tel"), Value::String("129099101".to_string()));
-        assert_eq!(super::get_model_key(&db_name, &model_name, &pl, &row), res);
+        row.insert(String::from("name"), json!("lucy"));
+        row.insert(String::from("age"), json!(12));
+        row.insert(String::from("tel"), json!("129099101"));
+        let tbl = Table::default(db_name, model_name, pl, vec![]);
+        assert_eq!(tbl.get_model_key(&row), res);
     }
 
     #[test]

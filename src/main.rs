@@ -6,8 +6,9 @@ extern crate serde_json;
 extern crate failure;
 extern crate core;
 extern crate zookeeper;
+#[macro_use]
+extern crate log;
 
-use serde_json::Value;
 use config::config::init;
 use config::config::ConfigType;
 

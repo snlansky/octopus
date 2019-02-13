@@ -9,6 +9,7 @@ use self::redis::ErrorKind;
 use self::sha1::Sha1;
 use std::collections::HashMap;
 
+
 #[allow(dead_code)]
 const LUA_RET: &str = "total";
 
@@ -107,7 +108,7 @@ impl LuaScript {
     pub fn invoke(&mut self, con: &Connection) -> Result<isize, redis::RedisError> {
         self.statements.push(format!("return {}", LUA_RET));
         let code = self.statements.join("\n");
-        println!("\n{}\n", code);
+        info!("LUA:{}\nKEYS:{:?}\nARGV:{:?}",code, self.keys, self.argv);
         let mut hash = Sha1::new();
         hash.update(code.as_bytes());
         let hash = hash.digest().to_string();

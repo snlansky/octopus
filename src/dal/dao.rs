@@ -309,7 +309,6 @@ impl Dao {
 #[cfg(test)]
 mod tests {
     use serde_json::Value;
-    use dal::error::Error as Error;
     use dal::dao::Dao;
     use dal::table::Table;
     use dal::table::Field;

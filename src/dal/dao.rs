@@ -9,6 +9,7 @@ use serde_json::Map;
 use std::fmt::Display;
 use mysql::Row;
 use std::collections::HashMap;
+use dal::value::ConvertTo;
 
 pub enum DML {
     Insert,
@@ -50,7 +51,7 @@ impl Dao {
                     .map(|row| {
                         Self::parse_row(row)
                     })
-                    .map(|f|Self::map2js(f))
+                    .map(|f| f.convert())
                     .collect::<Vec<_>>();
                 Ok(JsValue::Array(ts))
             }
@@ -73,7 +74,8 @@ impl Dao {
         let mut f_list: Vec<String> = Vec::new();
         let mut v_list: Vec<String> = Vec::new();
         for (f, v) in fv_map {
-            if let Some(dbv) = Self::js2my(&v) {
+            let v :Option<MyValue>= v.convert();
+            if let Some(dbv) = v {
                 f_list.push(format!("`{}`", f));
                 v_list.push(format!(":{}", f.to_lowercase()));
                 self.padd(f.to_lowercase(), dbv);
@@ -103,7 +105,8 @@ impl Dao {
 
         let mut fmt_params = Vec::new();
         for (f, v) in fv_map {
-            if let Some(dbv) = Self::js2my(&v) {
+            let v :Option<MyValue>= v.convert();
+            if let Some(dbv) = v {
                 fmt_params.push(format!("{} = :{}", f, f.to_lowercase()));
                 self.padd(f.to_lowercase(), dbv);
             }
@@ -168,7 +171,7 @@ impl Dao {
             }
             let mut param = f.clone();
             let lower_f = format!("cond{}", index);
-            let value = Self::js2my(v);
+            let value: Option<MyValue> = v.convert();
             match key[1] {
                 "eq" => {
                     param = format!("{} = :{}", key[0], lower_f);
@@ -211,7 +214,10 @@ impl Dao {
                         return Err(Error::CommonError { info: format!("invalid format at {}, it`s must json array", f) });
                     }
                     let list = v.as_array().unwrap().iter()
-                        .map(|f| Self::js2my(f))
+                        .map(|f| {
+                            let v :Option<MyValue> = f.convert();
+                            v
+                        })
                         .filter(|f| f.is_some())
                         .map(|f| f.unwrap())
                         .map(|f| f.as_sql(true))
@@ -267,42 +273,6 @@ impl Dao {
             }
         }
         return map;
-    }
-
-    fn map2js(map: HashMap<String, MyValue>) -> JsValue {
-        let mut m = Map::new();
-        for (k,v) in map {
-            m.insert(k, Self::my2js(v));
-        }
-        return JsValue::Object(m);
-    }
-
-    fn js2my(v: &JsValue) -> Option<MyValue> {
-        match v {
-            JsValue::String(s) => Some(MyValue::from(s)),
-            JsValue::Number(n) => {
-                if n.is_f64() {
-                    Some(MyValue::from(n.as_f64().unwrap()))
-                } else if n.is_i64() {
-                    Some(MyValue::from(n.as_i64().unwrap()))
-                } else if n.is_u64() {
-                    Some(MyValue::from(n.as_u64().unwrap()))
-                } else {
-                    None
-                }
-            }
-            _ => None
-        }
-    }
-
-    fn my2js(v: MyValue) -> JsValue {
-        match v {
-            MyValue::Float(f) => json!(f),
-            MyValue::Int(i) => json!(i),
-            MyValue::UInt(u) => json!(u),
-            MyValue::NULL => json!(null),
-            _ => json!(v.as_sql(false).replace("'","")),
-        }
     }
 }
 

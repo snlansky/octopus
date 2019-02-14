@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-//use super::value::Value;
 use redis::Connection;
 use dal::lua::LuaScript;
 use serde_json::Value as JsValue;
-use dal::utils::js2string;
+use dal::value::ConvertTo;
 
 #[allow(dead_code)]
 const METADATA: &str = "metadata";
@@ -107,7 +106,7 @@ impl Table {
         let pv_list = self.pks.iter().map(|p| {
             let value = row.get(p);
             if let Some(v) = value {
-                format!("{}", js2string(v))
+                v.convert()
             } else {
                 "".to_string()
             }

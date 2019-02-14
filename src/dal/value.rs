@@ -1,73 +1,97 @@
-use std::any::Any;
-use std::fmt::Display;
+use serde_json::Value as JsValue;
+use mysql::Value as MyValue;
+use std::collections::HashMap;
+use serde_json::Map;
 
-pub enum Value {
-    PosInt(u64),
-    NegInt(i64),
-    Float(f64),
-    String(String),
-    Bool(bool),
+pub trait ConvertTo<T> {
+    fn convert(&self) -> T;
 }
 
-impl ToString for Value {
-    fn to_string(&self) -> String {
+impl ConvertTo<JsValue> for JsValue {
+    fn convert(&self) -> JsValue {
+        self.clone()
+    }
+}
+
+impl ConvertTo<JsValue> for i32 {
+    fn convert(&self) -> JsValue {
+        json!(self)
+    }
+}
+
+impl ConvertTo<String> for JsValue {
+    fn convert(&self) -> String {
         match self {
-            Value::PosInt(i) => i.to_string(),
-            Value::NegInt(i) => i.to_string(),
-            Value::Float(i) => i.to_string(),
-            Value::String(s) => s.clone(),
-            Value::Bool(b) => {
-                if *b {
-                    "TRUE".to_string()
+            JsValue::String(s) => s.clone(),
+            JsValue::Number(n) => {
+                if n.is_f64() {
+                    format!("{}", n.as_f64().unwrap())
+                } else if n.is_i64() {
+                    format!("{}", n.as_i64().unwrap())
+                } else if n.is_u64() {
+                    format!("{}", n.as_u64().unwrap())
                 } else {
-                    "FALSE".to_string()
+                    "0".to_string()
                 }
             }
+            _ => self.to_string()
         }
     }
 }
 
-pub fn conv_string<T: Any + Display>(v: &T) -> String {
-    let t = v as &dyn Any;
-    if let Some(s) = t.downcast_ref::<String>() {
-        s.clone()
-    } else if let Some(s) = t.downcast_ref::<&str>() {
-        s.to_string()
-    } else if let Some(i) = t.downcast_ref::<i32>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<i64>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<u32>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<u64>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<f32>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<f64>() {
-        i.to_string()
-    } else if let Some(i) = t.downcast_ref::<bool>() {
-        if *i {
-            "TRUE".to_string()
-        } else {
-            "FALSE".to_string()
+// Map<String, JsValue>-> HashMap<String,String>
+impl ConvertTo<HashMap<String, String>> for Map<String, JsValue> {
+    fn convert(&self) -> HashMap<String, String> {
+        let mut hm = HashMap::new();
+        for (k, v) in self {
+            let s: String = v.convert();
+            hm.insert(k.clone(), s);
         }
-    } else {
-        format!("{}", v)
+        hm
     }
 }
 
+// MyValue -> JsValue
+impl ConvertTo<JsValue> for MyValue {
+    fn convert(&self) -> JsValue {
+        match self {
+            MyValue::Float(f) => json!(f),
+            MyValue::Int(i) => json!(i),
+            MyValue::UInt(u) => json!(u),
+            MyValue::NULL => json!(null),
+            _ => json!(self.as_sql(false).replace("'","")),
+        }
+    }
+}
 
-#[cfg(test)]
-mod tests {
+// HashMap<String, MyValue> -> JsValue
+impl ConvertTo<JsValue> for HashMap<String, MyValue> {
+    fn convert(&self) -> JsValue {
+        let mut m = Map::new();
+        for (k, v) in self {
+            m.insert(k.clone(), v.convert());
+        }
+        return JsValue::Object(m);
+    }
+}
 
-    #[test]
-    fn test_conv_string() {
-        use super::conv_string;
-        assert_eq!(conv_string(&12), "12");
-        assert_eq!(conv_string(&12.2), "12.2");
-        assert_eq!(conv_string(&false), "FALSE");
-        assert_eq!(conv_string(&"string"), "string");
-        let s = String::from("hello");
-        assert_eq!(conv_string(&s), s);
+// JsValue -> Option<MyValue>
+impl ConvertTo<Option<MyValue>> for JsValue {
+    fn convert(&self) -> Option<MyValue> {
+        match self {
+            JsValue::String(s) => Some(MyValue::from(s)),
+            JsValue::Number(n) => {
+                if n.is_f64() {
+                    Some(MyValue::from(n.as_f64().unwrap()))
+                } else if n.is_i64() {
+                    Some(MyValue::from(n.as_i64().unwrap()))
+                } else if n.is_u64() {
+                    Some(MyValue::from(n.as_u64().unwrap()))
+                } else {
+                    None
+                }
+            }
+            _ => None
+        }
     }
 }

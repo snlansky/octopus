@@ -10,8 +10,11 @@ use std::sync::MutexGuard;
 use config::config::MemRoute;
 use serde_json::Map;
 use serde_json::Value as JsValue;
-use std::ops::Deref;
-use dal::utils::map2hashmap;
+use dal::db::DB;
+use dal::dao::Dao;
+use dal::dao::DML;
+use std::rc::Rc;
+use dal::value::ConvertTo;
 
 pub struct Mem {
     record: HashMap<String, Vec<String>>,
@@ -39,7 +42,7 @@ impl Mem {
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 
-    pub fn bulk_hmset(&mut self, tbl: Table, body: JsValue) -> Result<isize, Error> {
+    pub fn bulk_hmset(&mut self, tbl: Table, body: JsValue, db: Arc<Mutex<DB>>) -> Result<isize, Error> {
         let conditions = body.get("conditions").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let cond = conditions.as_object().ok_or(Error::CommonError { info: "invalid json format at token conditions".to_string() })?;
         let (pv_map, pk_match) = Self::match_pk(&tbl, cond);
@@ -52,12 +55,29 @@ impl Mem {
             let mid = tbl.get_model_key(&pv_map);
             if conn.exists(mid.clone())? {
                 let mut lua = LuaScript::new();
-                lua.hmset(mid.clone(),map2hashmap(values));
-                lua.expire(mid, 60*60);
+                lua.hmset(mid.clone(), values.convert());
+                lua.expire(mid, 60 * 60);
                 let res = lua.invoke(&conn).map_err(|e| Error::from(e))?;
                 return Ok(res);
             }
         }
+
+        let rctbl = Rc::new(tbl);
+
+        let mut dao = Dao::new(rctbl, DML::Select, conditions.clone());
+        let v = dao.exec_sql(db)?;
+        let rows = v.as_array().ok_or(Error::CommonError { info: format!("JsValue: {} as array failed", v)})?;
+        let mut lua = LuaScript::new();
+        for row in rows {
+            let r = row.as_object().ok_or(Error::CommonError { info: format!("JsValue: {} as object failed", row)})?;
+
+//            let mid = rctbl.get_model_key(&pv_map);
+
+        }
+
+
+
+
 
         // update db
 

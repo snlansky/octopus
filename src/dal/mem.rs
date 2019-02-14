@@ -42,46 +42,45 @@ impl Mem {
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 
-    pub fn bulk_hmset(&mut self, tbl: Table, body: JsValue, db: Arc<Mutex<DB>>) -> Result<isize, Error> {
+    pub fn bulk_update(&mut self, tbl: Rc<Table>, body: JsValue, db: Arc<Mutex<DB>>) -> Result<isize, Error> {
         let conditions = body.get("conditions").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let cond = conditions.as_object().ok_or(Error::CommonError { info: "invalid json format at token conditions".to_string() })?;
         let (pv_map, pk_match) = Self::match_pk(&tbl, cond);
 
         let values = body.get("values").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
-        let values = conditions.as_object().ok_or(Error::CommonError { info: "invalid json format at token values".to_string() })?;
+        let values = values.as_object().ok_or(Error::CommonError { info: "invalid json format at token values".to_string() })?;
 
+        let conn = self.get_conn()?;
         if pk_match {
-            let conn = self.get_conn()?;
             let mid = tbl.get_model_key(&pv_map);
             if conn.exists(mid.clone())? {
                 let mut lua = LuaScript::new();
-                lua.hmset(mid.clone(), values.convert());
+                let vs: HashMap<String, String> = values.convert();
+                lua.hmset(mid.clone(), vs);
                 lua.expire(mid, 60 * 60);
                 let res = lua.invoke(&conn).map_err(|e| Error::from(e))?;
                 return Ok(res);
             }
         }
 
-        let rctbl = Rc::new(tbl);
 
-        let mut dao = Dao::new(rctbl, DML::Select, conditions.clone());
+        let tbl1 = tbl.clone();
+        let mut dao = Dao::new(tbl1, DML::Select, conditions.clone());
         let v = dao.exec_sql(db)?;
-        let rows = v.as_array().ok_or(Error::CommonError { info: format!("JsValue: {} as array failed", v)})?;
+        let rows = v.as_array().ok_or(Error::CommonError { info: format!("JsValue: {} as array failed", v) })?;
         let mut lua = LuaScript::new();
         for row in rows {
-            let r = row.as_object().ok_or(Error::CommonError { info: format!("JsValue: {} as object failed", row)})?;
-
-//            let mid = rctbl.get_model_key(&pv_map);
-
+            let mut row = row.as_object().ok_or(Error::CommonError { info: format!("JsValue: {} as object failed", row) })?.clone();
+            let pv: HashMap<String, JsValue> = row.convert();
+            let mid = tbl.get_model_key(&pv);
+            for (key, value) in values {
+                row.insert(key.clone(), value.clone());
+            }
+            let vs: HashMap<String, String> = row.convert();
+            lua.hmset(mid.clone(), vs);
+            lua.expire(mid, 60 * 60);
         }
-
-
-
-
-
-        // update db
-
-        Ok(10)
+        lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 
     fn match_pk(tbl: &Table, cond: &Map<String, JsValue>) -> (HashMap<String, JsValue>, bool) {
@@ -118,12 +117,15 @@ mod tests {
     use std::sync::Mutex;
     use dal::table::Table;
     use dal::table::Field;
-    use redis::Commands;
+    use std::rc::Rc;
+    use serde_json::Value;
+    use config::config::DBRoute;
+    use dal::db::open_db;
+    use dal::db::DB;
 
 
     //        let client = redis::Client::open("redis://:snlan@www.snlan.top:6379/").unwrap();
-    #[test]
-    fn test_mem_del() {
+    fn get_table_conn() -> (Table, Mem, DB) {
         let r = MemRoute {
             host: "www.snlan.top".to_string(),
             port: 6379,
@@ -132,7 +134,7 @@ mod tests {
             db: 0,
         };
         let conn = open_client(r).unwrap();
-        let mut mem = Mem::new(Arc::new(Mutex::new(conn)));
+        let mem = Mem::new(Arc::new(Mutex::new(conn)));
         let db = "block".to_string();
         let model = "TbTestModel".to_string();
         let pks = vec!["RoleGuid".to_string(), "TwoKey".to_string()];
@@ -145,8 +147,32 @@ mod tests {
         ];
         let table = Table::default(db, model, pks, fields);
 
+        let dbr = DBRoute {
+            engine: String::from("Mysql"),
+            user: String::from("snlan"),
+            pass: String::from("snlan"),
+            addr: String::from("www.snlan.top"),
+            db: String::from("block"),
+        };
+        let db = open_db(dbr).unwrap();
+        (table, mem, db)
+    }
+
+    #[test]
+    fn test_mem_del() {
+        let (table, mut mem, _) = get_table_conn();
         let res = mem.del(table, vec!["block:TbTestModel:RoleGuid,TwoKey:0000009b790008004b64fb,3".to_string()]).unwrap();
 
+        assert_eq!(res, 1);
+    }
+
+    #[test]
+    fn test_mem_bulk_update() {
+        let (table, mut mem, mut db) = get_table_conn();
+        let data = r##"{"conditions":{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":"3","operator":"AND"},"values":{"CreateDate":"2017-00-00","CreateDatetime":"2017-00-00 09:16:55","CreateTime":"10:00:00","CreateTimestamp":"1"}}"##;
+        let body: Value = serde_json::from_str(data).unwrap();
+
+        let res = mem.bulk_update(Rc::new(table), body, Arc::new(Mutex::new(db))).unwrap();
         assert_eq!(res, 1);
     }
 }

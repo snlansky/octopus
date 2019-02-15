@@ -18,9 +18,10 @@ pub enum DML {
     Select,
 }
 
+#[derive(Debug)]
 pub enum DaoResult {
     Affected(u64),
-    Rows(HashMap<String, JsValue>),
+    Rows(Vec<HashMap<String, JsValue>>),
 }
 
 pub struct Dao {
@@ -42,7 +43,7 @@ impl Dao {
         }
     }
 
-    pub fn exec_sql(&mut self, db: Arc<Mutex<DB>>) -> Result<JsValue, Error> {
+    pub fn exec_sql(&mut self, db: Arc<Mutex<DB>>) -> Result<DaoResult, Error> {
         self.build()?;
         println!("SQL->{}", self.sql);
         let mut db = db.lock()
@@ -56,11 +57,10 @@ impl Dao {
                     .map(|row| {
                         Self::parse_row(row)
                     })
-                    .map(|f| f.convert())
                     .collect::<Vec<_>>();
-                Ok(JsValue::Array(rows))
+                Ok(DaoResult::Rows(rows))
             }
-            _ => Ok(JsValue::from(qr.affected_rows() as f64)),
+            _ => Ok(DaoResult::Affected(qr.affected_rows())),
         }
     }
 
@@ -79,7 +79,7 @@ impl Dao {
         let mut f_list: Vec<String> = Vec::new();
         let mut v_list: Vec<String> = Vec::new();
         for (f, v) in fv_map {
-            let v :Option<MyValue>= v.convert();
+            let v: Option<MyValue> = v.convert();
             if let Some(dbv) = v {
                 f_list.push(format!("`{}`", f));
                 v_list.push(format!(":{}", f.to_lowercase()));
@@ -110,7 +110,7 @@ impl Dao {
 
         let mut fmt_params = Vec::new();
         for (f, v) in fv_map {
-            let v :Option<MyValue>= v.convert();
+            let v: Option<MyValue> = v.convert();
             if let Some(dbv) = v {
                 fmt_params.push(format!("{} = :{}", f, f.to_lowercase()));
                 self.padd(f.to_lowercase(), dbv);
@@ -220,7 +220,7 @@ impl Dao {
                     }
                     let list = v.as_array().unwrap().iter()
                         .map(|f| {
-                            let v :Option<MyValue> = f.convert();
+                            let v: Option<MyValue> = f.convert();
                             v
                         })
                         .filter(|f| f.is_some())
@@ -269,12 +269,12 @@ impl Dao {
         Ok(map.clone())
     }
 
-    fn parse_row(row: Row) -> HashMap<String, MyValue> {
-        let mut map: HashMap<String, MyValue> = HashMap::with_capacity(row.len());
+    fn parse_row(row: Row) -> HashMap<String, JsValue> {
+        let mut map: HashMap<String, JsValue> = HashMap::with_capacity(row.len());
         for (i, c) in row.columns().iter().enumerate() {
             let v = row.as_ref(i);
             if let Some(v) = v {
-                map.insert(c.name_str().as_ref().to_string(), v.clone());
+                map.insert(c.name_str().as_ref().to_string(), v.convert());
             }
         }
         return map;
@@ -332,7 +332,7 @@ mod tests {
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();
 
-        println!("{}", exec_res);
+        println!("{:?}", exec_res);
     }
 
     #[test]
@@ -344,7 +344,7 @@ mod tests {
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();
 
-        println!("{}", exec_res);
+        println!("{:?}", exec_res);
     }
 
     #[test]
@@ -356,7 +356,7 @@ mod tests {
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();
 
-        println!("{}", exec_res);
+        println!("{:?}", exec_res);
     }
 
     #[test]
@@ -368,6 +368,6 @@ mod tests {
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();
 
-        println!("{}", exec_res);
+        println!("{:?}", exec_res);
     }
 }

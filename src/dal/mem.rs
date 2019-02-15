@@ -15,6 +15,7 @@ use dal::dao::Dao;
 use dal::dao::DML;
 use std::rc::Rc;
 use dal::value::ConvertTo;
+use dal::dao::DaoResult;
 
 pub struct Mem {
     record: HashMap<String, Vec<String>>,
@@ -64,17 +65,19 @@ impl Mem {
 
         let tbl1 = tbl.clone();
         let mut dao = Dao::new(tbl1, DML::Select, conditions.clone());
-        let v = dao.exec_sql(db)?;
-        let rows = v.as_array().ok_or(Error::CommonError { info: format!("JsValue: {} as array failed", v) })?;
+        let rows = match  dao.exec_sql(db)? {
+            DaoResult::Rows(v) => v,
+            _ => panic!("program bug!"),
+        };
         let mut lua = LuaScript::new();
-        for row in rows {
-            let mut row = row.as_object().ok_or(Error::CommonError { info: format!("JsValue: {} as object failed", row) })?.clone();
-            let pv: HashMap<String, JsValue> = row.convert();
-            let mid = tbl.get_model_key(&pv);
+        for mut row in rows {
+            let mid = tbl.get_model_key(&row);
             for (key, value) in values {
                 row.insert(key.clone(), value.clone());
             }
-            let vs: HashMap<String, String> = row.convert();
+            let vs :HashMap<String,String> = row.into_iter()
+                .map(|(k,v)|(k, v.convert()))
+                .collect::<HashMap<_,_>>();
             lua.hmset(mid.clone(), vs);
             lua.expire(mid, 60 * 60);
         }

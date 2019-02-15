@@ -306,7 +306,6 @@ mod tests {
         Dao::new(Rc::new(table), dml, body)
     }
 
-
     fn get_db() -> DB {
         let dbr = DBRoute {
             engine: String::from("Mysql"),

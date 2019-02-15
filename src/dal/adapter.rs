@@ -12,7 +12,6 @@ pub fn add(db:Arc<Mutex<DB>>, tbl: Rc<Table>, body: JsValue) -> Result<JsValue, 
     dao.exec_sql(db)
 }
 
-
 pub fn remove(db:Arc<Mutex<DB>>, tbl: Rc<Table>, body: JsValue) -> Result<JsValue, Error> {
     let mut dao = Dao::new(tbl, DML::Delete, body);
     dao.exec_sql(db)

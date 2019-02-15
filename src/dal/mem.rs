@@ -26,7 +26,6 @@ impl Mem {
         Mem { record: HashMap::new(), conn }
     }
 
-
     fn get_conn(&mut self) -> Result<MutexGuard<Connection>, Error> {
         let conn = self.conn.lock()
             .map_err(|e| Error::CommonError { info: format!("get mem lock error: {:?}", e) })?;
@@ -62,7 +61,6 @@ impl Mem {
                 return Ok(res);
             }
         }
-
 
         let tbl1 = tbl.clone();
         let mut dao = Dao::new(tbl1, DML::Select, conditions.clone());
@@ -100,13 +98,11 @@ impl Mem {
     }
 }
 
-
 pub fn open_client(route: MemRoute) -> Result<Connection, Error> {
     let url = format!("redis://:{}@{}:{}/", route.pass, route.host, route.port);
     let client = redis::Client::open(url.as_str())?;
     client.get_connection().map_err(|e| Error::from(e))
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -123,8 +119,6 @@ mod tests {
     use dal::db::open_db;
     use dal::db::DB;
 
-
-    //        let client = redis::Client::open("redis://:snlan@www.snlan.top:6379/").unwrap();
     fn get_table_conn() -> (Table, Mem, DB) {
         let r = MemRoute {
             host: "www.snlan.top".to_string(),

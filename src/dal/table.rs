@@ -27,7 +27,6 @@ pub struct Field {
     pub tpe: String,
 }
 
-
 #[derive(Debug)]
 pub struct Table {
     db: String,
@@ -47,7 +46,6 @@ impl Table {
             }
             fields.push(Field { name: f.column_name.clone(), tpe: f.data_type.clone() })
         }
-
         Table { db, model, pks, fields }
     }
 
@@ -96,7 +94,6 @@ impl Table {
     pub fn get_pks(&self) -> &Vec<String> {
         &self.pks
     }
-
 
     pub fn get_fields(&self) -> &Vec<Field> {
         &self.fields

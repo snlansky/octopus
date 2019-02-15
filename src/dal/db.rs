@@ -136,19 +136,4 @@ mod tests {
         open_db(dbr).unwrap()
 
     }
-
-    #[test]
-    fn test_conn() {
-        let mut db = get_db();
-        let res = db.load_db().unwrap();
-
-        println!("{:#?}", db.tables);
-    }
-
-    #[test]
-    fn test_open_db() {
-        let mut db = get_db();
-        let mut con = db.get_conn().unwrap();
-//        con.prep_exec()
-    }
 }

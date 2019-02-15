@@ -89,7 +89,7 @@ impl Mem {
         if !exist {
             let mut dao = Dao::new(tbl.clone(), DML::Select, cond);
             let exec_res = dao.exec_sql(db.clone())?;
-            let row = exec_res.rows();
+//            let row = exec_res.rows();
         }
         Ok(json!(1))
     }

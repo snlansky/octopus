@@ -18,6 +18,11 @@ pub enum DML {
     Select,
 }
 
+pub enum DaoResult {
+    Affected(u64),
+    Rows(HashMap<String, JsValue>),
+}
+
 pub struct Dao {
     tbl: Rc<Table>,
     sql: String,

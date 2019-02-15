@@ -47,13 +47,13 @@ impl Dao {
 
         match self.dml {
             DML::Select => {
-                let ts = qr.map(|x| x.unwrap())
+                let rows = qr.map(|x| x.unwrap())
                     .map(|row| {
                         Self::parse_row(row)
                     })
                     .map(|f| f.convert())
                     .collect::<Vec<_>>();
-                Ok(JsValue::Array(ts))
+                Ok(JsValue::Array(rows))
             }
             _ => Ok(JsValue::from(qr.affected_rows() as f64)),
         }

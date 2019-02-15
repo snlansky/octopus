@@ -41,7 +41,7 @@ impl Mem {
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 
-    pub fn bulk_update(&mut self, tbl: Rc<Table>, body: JsValue, db: Arc<Mutex<DB>>) -> Result<isize, Error> {
+    pub fn load_update(&mut self, tbl: Rc<Table>, body: JsValue, db: Arc<Mutex<DB>>) -> Result<isize, Error> {
         let conditions = body.get("conditions").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let cond = conditions.as_object().ok_or(Error::CommonError { info: "invalid json format at token conditions".to_string() })?;
         let (pv_map, pk_match) = Self::match_pk(&tbl, cond);
@@ -81,7 +81,20 @@ impl Mem {
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 
-    fn match_pk(tbl: &Table, cond: &Map<String, JsValue>) -> (HashMap<String, JsValue>, bool) {
+    pub fn load_find(&mut self, tbl: Rc<Table>, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>) -> Result<JsValue, Error> {
+        let mut lua = LuaScript::new();
+        let mid = tbl.get_model_key(&pv);
+        let conn = self.get_conn()?;
+        let exist: bool = conn.exists(mid.clone())?;
+        if !exist {
+            let mut dao = Dao::new(tbl.clone(), DML::Select, cond);
+            let exec_res = dao.exec_sql(db.clone())?;
+            let row = exec_res.rows();
+        }
+        Ok(json!(1))
+    }
+
+    pub fn match_pk(tbl: &Table, cond: &Map<String, JsValue>) -> (HashMap<String, JsValue>, bool) {
         let pks = tbl.get_pks();
         let pv = pks.iter()
             .filter_map(|key| {
@@ -166,7 +179,7 @@ mod tests {
         let data = r##"{"conditions":{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":"3","operator":"AND"},"values":{"CreateDate":"2017-00-00","CreateDatetime":"2017-00-00 09:16:55","CreateTime":"10:00:00","CreateTimestamp":"1"}}"##;
         let body: Value = serde_json::from_str(data).unwrap();
 
-        let res = mem.bulk_update(Rc::new(table), body, Arc::new(Mutex::new(db))).unwrap();
+        let res = mem.load_update(Rc::new(table), body, Arc::new(Mutex::new(db))).unwrap();
         assert_eq!(res, 1);
     }
 }

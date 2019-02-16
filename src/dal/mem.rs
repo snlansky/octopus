@@ -16,6 +16,7 @@ use dal::dao::DML;
 use std::rc::Rc;
 use dal::value::ConvertTo;
 use dal::dao::DaoResult;
+use dal::table::Field;
 
 pub struct Mem {
     record: HashMap<String, Vec<String>>,
@@ -27,7 +28,7 @@ impl Mem {
         Mem { record: HashMap::new(), conn }
     }
 
-    fn get_conn(&mut self) -> Result<MutexGuard<Connection>, Error> {
+    fn get_conn(&self) -> Result<MutexGuard<Connection>, Error> {
         let conn = self.conn.lock()
             .map_err(|e| Error::CommonError { info: format!("get mem lock error: {:?}", e) })?;
         Ok(conn)
@@ -65,8 +66,8 @@ impl Mem {
 
         let tbl1 = tbl.clone();
         let mut dao = Dao::new(tbl1, DML::Select, conditions.clone());
-        let rows = match  dao.exec_sql(db)? {
-            DaoResult::Rows(v) => v,
+        let rows = match dao.exec_sql(db)? {
+            DaoResult::Rows(rows) => rows,
             _ => panic!("program bug!"),
         };
         let mut lua = LuaScript::new();
@@ -75,26 +76,48 @@ impl Mem {
             for (key, value) in values {
                 row.insert(key.clone(), value.clone());
             }
-            let vs :HashMap<String,String> = row.into_iter()
-                .map(|(k,v)|(k, v.convert()))
-                .collect::<HashMap<_,_>>();
+            let vs: HashMap<String, String> = row.into_iter()
+                .map(|(k, v)| (k, v.convert()))
+                .collect::<HashMap<_, _>>();
             lua.hmset(mid.clone(), vs);
             lua.expire(mid, 60 * 60);
         }
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 
-    pub fn load_find(&mut self, tbl: Rc<Table>, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>) -> Result<JsValue, Error> {
-        let mut lua = LuaScript::new();
+    pub fn load_find(&mut self, tbl: Rc<Table>, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>, fields: &Vec<Field>) -> Result<JsValue, Error> {
         let mid = tbl.get_model_key(&pv);
         let conn = self.get_conn()?;
         let exist: bool = conn.exists(mid.clone())?;
         if !exist {
             let mut dao = Dao::new(tbl.clone(), DML::Select, cond);
-            let exec_res = dao.exec_sql(db.clone())?;
-//            let row = exec_res.rows();
+            let rows = match dao.exec_sql(db.clone())? {
+                DaoResult::Rows(rows) => rows,
+                _ => panic!("program bug!"),
+            };
+            if rows.len() == 0 {
+                return Ok(JsValue::Array(Vec::new()));
+            }
+            let mut lua = LuaScript::new();
+            let row0 = rows.get(0).unwrap().into_iter()
+                .map(|(k, v)| {
+                    let s:String = v.convert();
+                    (k.clone(), s)
+                })
+                .collect::<HashMap<_, _>>();
+            lua.hmset(mid.clone(), row0);
+            lua.expire(mid.clone(), 60 * 60);
+            lua.invoke(&conn);
         }
-        Ok(json!(1))
+        let _: () = self.try_register_schema(&mid, tbl.clone(), &conn)?;
+
+        let row;
+        if fields.len() > 0 {
+            row = self.get_value(mid, fields, &conn)?;
+        } else {
+            row = self.get_value(mid, tbl.get_fields(), &conn)?;
+        }
+        Ok(JsValue::Array(vec![row]))
     }
 
     pub fn match_pk(tbl: &Table, cond: &Map<String, JsValue>) -> (HashMap<String, JsValue>, bool) {
@@ -109,8 +132,25 @@ impl Mem {
     }
 
     // 在cache中注册模式
-    pub fn register_schema(&self, tbl: &Table) -> Result<(), Error> {
-        Ok(())
+    pub fn try_register_schema(&self, mid: &String, tbl: Rc<Table>, con: &Connection) -> Result<(), Error> {
+        let exist: bool = con.exists(mid)?;
+        if exist {
+            return Ok(());
+        }
+        tbl.register_schema(con).map_err(|e| Error::MemError(e))
+    }
+
+    fn get_value(&self, mid: String, fields: &Vec<Field>, con: &Connection) -> Result<JsValue, Error> {
+        let fs = fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
+        let values: Vec<String> = con.hget(mid, fs)?;
+
+        let mut fv = Map::new();
+        for i in 0..values.len() {
+            let field = &fields[i];
+            let v = field.get_value(&values[i])?;
+            fv.insert(field.name.clone(), v);
+        }
+        Ok(JsValue::Object(fv))
     }
 }
 

@@ -3,6 +3,7 @@ use redis::Connection;
 use dal::lua::LuaScript;
 use serde_json::Value as JsValue;
 use dal::value::ConvertTo;
+use dal::error::Error;
 
 #[allow(dead_code)]
 const METADATA: &str = "metadata";
@@ -21,10 +22,69 @@ pub struct TableSchema {
     pub column_key: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Field {
     pub name: String,
     pub tpe: String,
+}
+
+impl Field {
+    pub fn get_value(&self, s: &String) -> Result<JsValue, Error> {
+        let name = self.name.clone();
+        match name.as_str() {
+            "char" => Ok(json!(s.as_str())),
+            "varchar" => Ok(json!(s.as_str())),
+            "text" => Ok(json!(s.as_str())),
+            "tinytext" => Ok(json!(s.as_str())),
+            "mediumtext" => Ok(json!(s.as_str())),
+            "longtext" => Ok(json!(s.as_str())),
+            "date" => Ok(json!(s.as_str())),
+            "time" => Ok(json!(s.as_str())),
+            "datetime" => Ok(json!(s.as_str())),
+            "timestamp" => Ok(json!(s.as_str())),
+            "int" => {
+                let i = s.parse::<i64>()
+                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                Ok(json!(i))
+            }
+            "tinyint" => {
+                let i = s.parse::<i8>()
+                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                Ok(json!(i))
+            }
+            "smallint" => {
+                let i = s.parse::<i16>()
+                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                Ok(json!(i))
+            }
+            "mediumint" => {
+                let i = s.parse::<i32>()
+                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                Ok(json!(i))
+            }
+            "bigint" => {
+                let i = s.parse::<i64>()
+                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                Ok(json!(i))
+            }
+            "float" => {
+                let i = s.parse::<f32>()
+                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                Ok(json!(i))
+            }
+            "double" => {
+                let i = s.parse::<f64>()
+                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                Ok(json!(i))
+            }
+            "decimal" => {
+                let i = s.parse::<f64>()
+                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                Ok(json!(i))
+            }
+            _ => Err(Error::CommonError { info: format!("field: {} [{}] convert to undefind {} error", self.name, s, self.tpe) })
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -156,7 +216,6 @@ mod tests {
 
     #[test]
     fn test_get_model_key() {
-
         let res = String::from("daqing:user_table:name,age:lucy,12");
         let db_name = String::from("daqing");
         let model_name = String::from("user_table");

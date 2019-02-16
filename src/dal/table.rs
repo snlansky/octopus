@@ -30,18 +30,17 @@ pub struct Field {
 
 impl Field {
     pub fn get_value(&self, s: &String) -> Result<JsValue, Error> {
-        let name = self.name.clone();
-        match name.as_str() {
-            "char" => Ok(json!(s.as_str())),
-            "varchar" => Ok(json!(s.as_str())),
-            "text" => Ok(json!(s.as_str())),
-            "tinytext" => Ok(json!(s.as_str())),
-            "mediumtext" => Ok(json!(s.as_str())),
-            "longtext" => Ok(json!(s.as_str())),
-            "date" => Ok(json!(s.as_str())),
-            "time" => Ok(json!(s.as_str())),
-            "datetime" => Ok(json!(s.as_str())),
-            "timestamp" => Ok(json!(s.as_str())),
+        match self.tpe.as_str() {
+            "char" => Ok(JsValue::String(s.clone())),
+            "varchar" => Ok(JsValue::String(s.clone())),
+            "text" => Ok(JsValue::String(s.clone())),
+            "tinytext" => Ok(JsValue::String(s.clone())),
+            "mediumtext" => Ok(JsValue::String(s.clone())),
+            "longtext" => Ok(JsValue::String(s.clone())),
+            "date" => Ok(JsValue::String(s.clone())),
+            "time" => Ok(JsValue::String(s.clone())),
+            "datetime" => Ok(JsValue::String(s.clone())),
+            "timestamp" => Ok(JsValue::String(s.clone())),
             "int" => {
                 let i = s.parse::<i64>()
                     .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
@@ -82,7 +81,7 @@ impl Field {
                     .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
                 Ok(json!(i))
             }
-            _ => Err(Error::CommonError { info: format!("field: {} [{}] convert to undefind {} error", self.name, s, self.tpe) })
+            _ => Err(Error::CommonError { info: format!("field: {} [{}] convert to undefined {} error", self.name, s, self.tpe) })
         }
     }
 }

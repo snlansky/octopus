@@ -109,7 +109,9 @@ impl Mem {
             lua.expire(mid.clone(), 60 * 60);
             lua.invoke(&conn);
         }
-        let _: () = self.try_register_schema(&mid, tbl.clone(), &conn)?;
+
+
+        let _: () = self.try_register_schema( tbl.clone(), &conn)?;
 
         let row;
         if fields.len() > 0 {
@@ -132,8 +134,8 @@ impl Mem {
     }
 
     // 在cache中注册模式
-    pub fn try_register_schema(&self, mid: &String, tbl: Rc<Table>, con: &Connection) -> Result<(), Error> {
-        let exist: bool = con.exists(mid)?;
+    pub fn try_register_schema(&self, tbl: Rc<Table>, con: &Connection) -> Result<(), Error> {
+        let exist: bool = con.exists(tbl.get_table_schema_key())?;
         if exist {
             return Ok(());
         }
@@ -217,12 +219,27 @@ mod tests {
     }
 
     #[test]
-    fn test_mem_bulk_update() {
+    fn test_mem_load_update() {
         let (table, mut mem, mut db) = get_table_conn();
         let data = r##"{"conditions":{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":"3","operator":"AND"},"values":{"CreateDate":"2017-00-00","CreateDatetime":"2017-00-00 09:16:55","CreateTime":"10:00:00","CreateTimestamp":"1"}}"##;
         let body: Value = serde_json::from_str(data).unwrap();
 
         let res = mem.load_update(Rc::new(table), body, Arc::new(Mutex::new(db))).unwrap();
         assert_eq!(res, 1);
+    }
+
+    #[test]
+    fn test_mem_load_find(){
+        let (table, mut mem,  db) = get_table_conn();
+        let data = r##"{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":3,"operator":"AND"}"##;
+        let conditions:Value = serde_json::from_str(data).unwrap();
+
+        let cond = conditions.clone();
+        let cond = cond.as_object().unwrap();
+        let (pv_map, pk_match) = Mem::match_pk(&table, cond);
+        let tbl = Rc::new(table);
+        let fields = vec![Field{ name: "RoleGuid".to_string(), tpe: "varchar".to_string() }, Field{ name: "TwoKey".to_string(), tpe: "int".to_string() }];
+        let res = mem.load_find(tbl.clone(), pv_map, conditions, Arc::new(Mutex::new(db)), &fields).unwrap();
+        println!("{}", res);
     }
 }

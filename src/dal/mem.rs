@@ -30,11 +30,11 @@ impl Mem {
 
     fn get_conn(&self) -> Result<MutexGuard<Connection>, Error> {
         let conn = self.conn.lock()
-            .map_err(|e| Error::CommonError { info: format!("get mem lock error: {:?}", e) })?;
+            .map_err(|e| Error::CommonError { info: format!("get mem connection lock error: {:?}", e) })?;
         Ok(conn)
     }
 
-    pub fn del(&mut self, tbl: Rc<Table>, mid: Vec<String>) -> Result<isize, Error> {
+    pub fn del(&mut self, tbl: &Table, mid: Vec<String>) -> Result<isize, Error> {
         let mut lua = LuaScript::new();
         lua.del(mid.clone());
         lua.srem(tbl.get_table_set_key(), mid);
@@ -43,7 +43,7 @@ impl Mem {
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 
-    pub fn load_update(&mut self, tbl: Rc<Table>, body: JsValue, db: Arc<Mutex<DB>>) -> Result<isize, Error> {
+    pub fn load_update(&mut self, tbl: Rc<Table>, body: JsValue, db: Arc<Mutex<DB>>) -> Result<Vec<String>, Error> {
         let conditions = body.get("conditions").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let cond = conditions.as_object().ok_or(Error::CommonError { info: "invalid json format at token conditions".to_string() })?;
         let (pv_map, pk_match) = Self::match_pk(&tbl, cond);
@@ -58,9 +58,9 @@ impl Mem {
                 let mut lua = LuaScript::new();
                 let vs: HashMap<String, String> = values.convert();
                 lua.hmset(mid.clone(), vs);
-                lua.expire(mid, 60 * 60);
-                let res = lua.invoke(&conn).map_err(|e| Error::from(e))?;
-                return Ok(res);
+                lua.expire(mid.clone(), 60 * 60);
+                let _:isize = lua.invoke(&conn).map_err(|e| Error::from(e))?;
+                return Ok(vec![mid]);
             }
         }
 
@@ -71,6 +71,7 @@ impl Mem {
             _ => panic!("program bug!"),
         };
         let mut lua = LuaScript::new();
+        let mut mids = Vec::with_capacity(rows.len());
         for mut row in rows {
             let mid = tbl.get_model_key(&row);
             for (key, value) in values {
@@ -80,9 +81,11 @@ impl Mem {
                 .map(|(k, v)| (k, v.convert()))
                 .collect::<HashMap<_, _>>();
             lua.hmset(mid.clone(), vs);
-            lua.expire(mid, 60 * 60);
+            lua.expire(mid.clone(), 60 * 60);
+            mids.push(mid);
         }
-        lua.invoke(&conn).map_err(|e| Error::from(e))
+        let _: isize = lua.invoke(&conn).map_err(|e| Error::from(e))?;
+        Ok(mids)
     }
 
     pub fn load_find(&mut self, tbl: Rc<Table>, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>, fields: &Vec<Field>) -> Result<JsValue, Error> {
@@ -101,7 +104,7 @@ impl Mem {
             let mut lua = LuaScript::new();
             let row0 = rows.get(0).unwrap().into_iter()
                 .map(|(k, v)| {
-                    let s:String = v.convert();
+                    let s: String = v.convert();
                     (k.clone(), s)
                 })
                 .collect::<HashMap<_, _>>();
@@ -111,7 +114,7 @@ impl Mem {
         }
 
 
-        let _: () = self.try_register_schema( tbl.clone(), &conn)?;
+        let _: () = self.try_register_schema(tbl.clone(), &conn)?;
 
         let row;
         if fields.len() > 0 {
@@ -213,7 +216,7 @@ mod tests {
     #[test]
     fn test_mem_del() {
         let (table, mut mem, _) = get_table_conn();
-        let res = mem.del(Rc::new(table), vec!["block:TbTestModel:RoleGuid,TwoKey:0000009b790008004b64fb,3".to_string()]).unwrap();
+        let res = mem.del(&table, vec!["block:TbTestModel:RoleGuid,TwoKey:0000009b790008004b64fb,3".to_string()]).unwrap();
 
         assert_eq!(res, 1);
     }
@@ -225,20 +228,20 @@ mod tests {
         let body: Value = serde_json::from_str(data).unwrap();
 
         let res = mem.load_update(Rc::new(table), body, Arc::new(Mutex::new(db))).unwrap();
-        assert_eq!(res, 1);
+        assert_eq!(res.len(), 1);
     }
 
     #[test]
-    fn test_mem_load_find(){
-        let (table, mut mem,  db) = get_table_conn();
+    fn test_mem_load_find() {
+        let (table, mut mem, db) = get_table_conn();
         let data = r##"{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":3,"operator":"AND"}"##;
-        let conditions:Value = serde_json::from_str(data).unwrap();
+        let conditions: Value = serde_json::from_str(data).unwrap();
 
         let cond = conditions.clone();
         let cond = cond.as_object().unwrap();
         let (pv_map, pk_match) = Mem::match_pk(&table, cond);
         let tbl = Rc::new(table);
-        let fields = vec![Field{ name: "RoleGuid".to_string(), tpe: "varchar".to_string() }, Field{ name: "TwoKey".to_string(), tpe: "int".to_string() }];
+        let fields = vec![Field { name: "RoleGuid".to_string(), tpe: "varchar".to_string() }, Field { name: "TwoKey".to_string(), tpe: "int".to_string() }];
         let res = mem.load_find(tbl.clone(), pv_map, conditions, Arc::new(Mutex::new(db)), &fields).unwrap();
         println!("{}", res);
     }

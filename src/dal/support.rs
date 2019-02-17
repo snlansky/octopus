@@ -9,7 +9,8 @@ use dal::dao::DML;
 use dal::dao::DaoResult;
 use dal::mem::Mem;
 use threadpool::ThreadPool;
-
+use std::sync::RwLock;
+use std::ops::Deref;
 
 pub struct Support {}
 
@@ -35,7 +36,7 @@ pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Table, body: JsValue) -
             })
             .collect::<Vec<_>>();
         if mids.len() > 0 {
-            mem.del(rc_tbl.clone(), mids)?;
+            mem.del(rc_tbl.deref(), mids)?;
         }
     }
 
@@ -46,22 +47,42 @@ pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Table, body: JsValue) -
     }
 }
 
-pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Table, body: JsValue) -> Result<JsValue, Error> {
-    let tbl = Rc::new(tbl);
-    if let Some(mut mem) = mem {
-        let ret = mem.load_update(tbl.clone(), body, db.clone())
-            .map(|i| json!(i));
-        pool.execute(|| {
-            println!("-------------");
-//            panic!("--run--");
-        });
-        ret
-    } else {
-        let mut dao = Dao::new(tbl.clone(), DML::Update, body);
+pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Table, body: JsValue) -> Result<JsValue, Error> {
+    let table = Arc::new(RwLock::new(table));
+
+    let up_dao = move |tbl: Arc<RwLock<Table>>| -> Result<JsValue, Error>{
+        let tbl = tbl.read()
+            .map_err(|e|Error::CommonError { info: format!("get table read lock error: {:?}", e) })?;
+        let tbl = Rc::new(*tbl.deref());
+        let mut dao = Dao::new(tbl, DML::Update, body);
         match dao.exec_sql(db.clone())? {
             DaoResult::Affected(i) => Ok(json!(i)),
             _ => panic!("program bug"),
         }
+    };
+
+    let t1 = table.clone();
+    if let Some(mut mem) = mem {
+        let t1 = t1.read()
+            .map_err(|e|Error::CommonError { info: format!("get table read lock error: {:?}", e) })?;
+        let tbl = Rc::new(t1.deref().clone());
+        let mids = mem.load_update(tbl, body.clone(), db.clone())?;
+        let i = mids.len();
+        let t2 = table.clone();
+        pool.execute(move || {
+            let res = up_dao(t2.clone());
+            if res.is_err() {
+                let t2 = t2.read()
+                    .map_err(|e|Error::CommonError { info: format!("get table read lock error: {:?}", e) });
+                match t2 {
+                    Ok(t) => mem.del(t.deref(), mids),
+                    _ => return,
+                };
+            }
+        });
+        Ok(json!(i))
+    } else {
+        up_dao(t1)
     }
 }
 
@@ -138,7 +159,5 @@ mod tests {
         let i = modify(&pool, Arc::new(Mutex::new(db)), Some(mem), table, body).unwrap();
         thread::sleep(time::Duration::from_secs(2));
         assert_eq!(json!(2), i);
-
-        assert_eq!(pool.panic_count(), 2)
     }
 }

@@ -8,20 +8,20 @@ use std::rc::Rc;
 use dal::dao::DML;
 use dal::dao::DaoResult;
 use dal::mem::Mem;
+use threadpool::ThreadPool;
 
-pub struct Support {
 
-}
+pub struct Support {}
 
 pub fn add(db: Arc<Mutex<DB>>, tbl: Rc<Table>, body: JsValue) -> Result<JsValue, Error> {
     let mut dao = Dao::new(tbl, DML::Insert, body);
-    match  dao.exec_sql(db)? {
-        DaoResult::Affected(i)=>Ok(json!(i)),
+    match dao.exec_sql(db)? {
+        DaoResult::Affected(i) => Ok(json!(i)),
         _ => panic!("program bug"),
     }
 }
 
-pub fn remove(db: Arc<Mutex<DB>>, mem:Option<Mem>, tbl: Table, body: JsValue) -> Result<JsValue, Error> {
+pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Table, body: JsValue) -> Result<JsValue, Error> {
     let rc_tbl = Rc::new(tbl);
     if let Some(mut mem) = mem {
         let mut dao = Dao::new(rc_tbl.clone(), DML::Select, body.clone());
@@ -30,7 +30,7 @@ pub fn remove(db: Arc<Mutex<DB>>, mem:Option<Mem>, tbl: Table, body: JsValue) ->
             _ => panic!("program bug"),
         };
         let mids = rows.iter()
-            .map(|row|{
+            .map(|row| {
                 rc_tbl.clone().get_model_key(row)
             })
             .collect::<Vec<_>>();
@@ -40,19 +40,29 @@ pub fn remove(db: Arc<Mutex<DB>>, mem:Option<Mem>, tbl: Table, body: JsValue) ->
     }
 
     let mut dao = Dao::new(rc_tbl.clone(), DML::Delete, body);
-    match  dao.exec_sql(db.clone())? {
-        DaoResult::Affected(i)=>Ok(json!(i)),
+    match dao.exec_sql(db.clone())? {
+        DaoResult::Affected(i) => Ok(json!(i)),
         _ => panic!("program bug"),
     }
 }
 
-pub fn modify() -> Result<JsValue, Error> {
-    let d1 = DaoResult::Affected(12);
-    let i= match d1 {
-        DaoResult::Affected(t) => t,
-        _ => panic!("program bug")
-    };
-    Ok(json!(i))
+pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Table, body: JsValue) -> Result<JsValue, Error> {
+    let tbl = Rc::new(tbl);
+    if let Some(mut mem) = mem {
+        let ret = mem.load_update(tbl.clone(), body, db.clone())
+            .map(|i| json!(i));
+        pool.execute(|| {
+            println!("-------------");
+//            panic!("--run--");
+        });
+        ret
+    } else {
+        let mut dao = Dao::new(tbl.clone(), DML::Update, body);
+        match dao.exec_sql(db.clone())? {
+            DaoResult::Affected(i) => Ok(json!(i)),
+            _ => panic!("program bug"),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -71,6 +81,9 @@ mod tests {
     use dal::support::remove;
     use serde_json::Value;
     use std::rc::Rc;
+    use threadpool::ThreadPool;
+    use std::{thread, time};
+
 
     fn get_table_conn() -> (Table, Mem, DB) {
         let r = MemRoute {
@@ -113,5 +126,19 @@ mod tests {
         let mem: Option<Mem> = Some(mem);
         let i = remove(Arc::new(Mutex::new(db)), mem, table, body).unwrap();
         assert_eq!(json!(1), i);
+    }
+
+    #[test]
+    fn test_modify() {
+        let (table, mut mem, mut db) = get_table_conn();
+        let data = r##"{"conditions":{"TwoKey__gte":1,"TwoKey__lte":9, "TwoKey__in":[21,31],"operator":"OR", "RoleGuid__like":"%9b%"},"values":{"CreateDate":"2017-02-23","CreateTimestamp":123}}"##;
+        let body: Value = serde_json::from_str(data).unwrap();
+
+        let pool = ThreadPool::new(2);
+        let i = modify(&pool, Arc::new(Mutex::new(db)), Some(mem), table, body).unwrap();
+        thread::sleep(time::Duration::from_secs(2));
+        assert_eq!(json!(2), i);
+
+        assert_eq!(pool.panic_count(), 2)
     }
 }

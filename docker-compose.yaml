@@ -84,7 +84,7 @@ services:
     links:
       - zoo1:zoo1
       - zoo2:zoo2
-      - zoo3:zoo3[root@VM_29_13_centos zkui]#
+      - zoo3:zoo3
 
 volumes:
   mysql-data:

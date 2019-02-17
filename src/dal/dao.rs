@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_access_insert() {
-        let data = r##"{"values":{"RoleGuid":"0000009b790008004b65fb","TwoKey":2,"CreateTime":"22:00:00","CreateDatetime":"2019-02-08","CreateDate":"2019-02-06 01:24:38","CreateTimestamp":1480580000}}"##;
+        let data = r##"{"values":{"RoleGuid":"0000009b790008004b64fb","TwoKey":3,"CreateTime":"22:00:00","CreateDatetime":"2019-02-08","CreateDate":"2019-02-06 01:24:38","CreateTimestamp":1480580000}}"##;
 
         let v: Value = serde_json::from_str(data).unwrap();
         let mut access = new(DML::Insert, v);
@@ -337,7 +337,7 @@ mod tests {
 
     #[test]
     fn test_access_delete() {
-        let data = r##"{"RoleGuid__eq":"0000009b790008004b65fb","TwoKey__eq":2,"operator":"AND"}"##;
+        let data = r##"{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":3,"operator":"AND"}"##;
         let v: Value = serde_json::from_str(data).unwrap();
         let mut access = new(DML::Delete, v);
 

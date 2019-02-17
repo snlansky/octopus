@@ -34,7 +34,7 @@ impl Mem {
         Ok(conn)
     }
 
-    pub fn del(&mut self, tbl: Table, mid: Vec<String>) -> Result<isize, Error> {
+    pub fn del(&mut self, tbl: Rc<Table>, mid: Vec<String>) -> Result<isize, Error> {
         let mut lua = LuaScript::new();
         lua.del(mid.clone());
         lua.srem(tbl.get_table_set_key(), mid);
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn test_mem_del() {
         let (table, mut mem, _) = get_table_conn();
-        let res = mem.del(table, vec!["block:TbTestModel:RoleGuid,TwoKey:0000009b790008004b64fb,3".to_string()]).unwrap();
+        let res = mem.del(Rc::new(table), vec!["block:TbTestModel:RoleGuid,TwoKey:0000009b790008004b64fb,3".to_string()]).unwrap();
 
         assert_eq!(res, 1);
     }

@@ -25,11 +25,4 @@ pub struct ZKS {
     pub multiple: i32,
 }
 
-
-pub enum ConfigType {
-    Json,
-    Zookeeper,
-}
-
-
-pub fn init(file: String, t: ConfigType) {}
+pub fn init(file: String) {}

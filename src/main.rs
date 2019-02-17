@@ -8,16 +8,20 @@ extern crate core;
 extern crate zookeeper;
 #[macro_use]
 extern crate log;
+extern crate env_logger;
+
 
 use config::config::init;
-use config::config::ConfigType;
+use log::Level;
 
 mod dal;
 mod config;
-mod service_discovery;
+mod discovery;
 
 
 fn main() {
-    init("service.json".to_string(), ConfigType::Json);
+    env_logger::init();
+    init("service.json".to_string());
+    debug!("ok");
 }
 

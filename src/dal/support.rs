@@ -45,7 +45,7 @@ pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: &Table, body: JsValue) 
     }
 }
 
-pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: &'static Table, body: JsValue) -> Result<JsValue, Error> {
+pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: &Table, body: JsValue) -> Result<JsValue, Error> {
     let table = Arc::new(RwLock::new(table));
 
     let up_dao = move |tbl: Arc<RwLock<&Table>>| -> Result<JsValue, Error>{

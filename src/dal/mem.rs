@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_mem_load_update() {
-        let (table, mut mem, mut db) = get_table_conn();
+        let (table, mut mem,  db) = get_table_conn();
         let data = r##"{"conditions":{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":"3","operator":"AND"},"values":{"CreateDate":"2017-00-00","CreateDatetime":"2017-00-00 09:16:55","CreateTime":"10:00:00","CreateTimestamp":"1"}}"##;
         let body: Value = serde_json::from_str(data).unwrap();
 

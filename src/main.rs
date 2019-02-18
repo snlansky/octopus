@@ -44,6 +44,6 @@ fn main() {
         .get_matches();
 
     let cluster = matches.value_of("path").unwrap();
-    println!("{:?}", );
+    println!("--{:?}", cluster);
 }
 

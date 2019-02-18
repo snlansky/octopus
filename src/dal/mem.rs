@@ -13,7 +13,6 @@ use serde_json::Value as JsValue;
 use dal::db::DB;
 use dal::dao::Dao;
 use dal::dao::DML;
-use std::rc::Rc;
 use dal::value::ConvertTo;
 use dal::dao::DaoResult;
 use dal::table::Field;
@@ -43,7 +42,7 @@ impl Mem {
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 
-    pub fn load_update(&mut self, tbl: Rc<Table>, body: JsValue, db: Arc<Mutex<DB>>) -> Result<Vec<String>, Error> {
+    pub fn load_update(&mut self, tbl: &Table, body: JsValue, db: Arc<Mutex<DB>>) -> Result<Vec<String>, Error> {
         let conditions = body.get("conditions").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let cond = conditions.as_object().ok_or(Error::CommonError { info: "invalid json format at token conditions".to_string() })?;
         let (pv_map, pk_match) = Self::match_pk(&tbl, cond);
@@ -64,8 +63,7 @@ impl Mem {
             }
         }
 
-        let tbl1 = tbl.clone();
-        let mut dao = Dao::new(tbl1, DML::Select, conditions.clone());
+        let mut dao = Dao::new(tbl, DML::Select, conditions.clone());
         let rows = match dao.exec_sql(db)? {
             DaoResult::Rows(rows) => rows,
             _ => panic!("program bug!"),
@@ -88,12 +86,12 @@ impl Mem {
         Ok(mids)
     }
 
-    pub fn load_find(&mut self, tbl: Rc<Table>, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>, fields: &Vec<Field>) -> Result<JsValue, Error> {
+    pub fn load_find(&mut self, tbl: &Table, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>, fields: &Vec<Field>) -> Result<JsValue, Error> {
         let mid = tbl.get_model_key(&pv);
         let conn = self.get_conn()?;
         let exist: bool = conn.exists(mid.clone())?;
         if !exist {
-            let mut dao = Dao::new(tbl.clone(), DML::Select, cond);
+            let mut dao = Dao::new(tbl, DML::Select, cond);
             let rows = match dao.exec_sql(db.clone())? {
                 DaoResult::Rows(rows) => rows,
                 _ => panic!("program bug!"),
@@ -114,7 +112,7 @@ impl Mem {
         }
 
 
-        let _: () = self.try_register_schema(tbl.clone(), &conn)?;
+        let _: () = self.try_register_schema(tbl, &conn)?;
 
         let row;
         if fields.len() > 0 {
@@ -137,7 +135,7 @@ impl Mem {
     }
 
     // 在cache中注册模式
-    pub fn try_register_schema(&self, tbl: Rc<Table>, con: &Connection) -> Result<(), Error> {
+    pub fn try_register_schema(&self, tbl: &Table, con: &Connection) -> Result<(), Error> {
         let exist: bool = con.exists(tbl.get_table_schema_key())?;
         if exist {
             return Ok(());
@@ -174,7 +172,6 @@ mod tests {
     use std::sync::Mutex;
     use dal::table::Table;
     use dal::table::Field;
-    use std::rc::Rc;
     use serde_json::Value;
     use config::config::DBRoute;
     use dal::db::open_db;
@@ -227,7 +224,7 @@ mod tests {
         let data = r##"{"conditions":{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":"3","operator":"AND"},"values":{"CreateDate":"2017-00-00","CreateDatetime":"2017-00-00 09:16:55","CreateTime":"10:00:00","CreateTimestamp":"1"}}"##;
         let body: Value = serde_json::from_str(data).unwrap();
 
-        let res = mem.load_update(Rc::new(table), body, Arc::new(Mutex::new(db))).unwrap();
+        let res = mem.load_update(&table, body, Arc::new(Mutex::new(db))).unwrap();
         assert_eq!(res.len(), 1);
     }
 
@@ -239,10 +236,9 @@ mod tests {
 
         let cond = conditions.clone();
         let cond = cond.as_object().unwrap();
-        let (pv_map, pk_match) = Mem::match_pk(&table, cond);
-        let tbl = Rc::new(table);
+        let (pv_map, _) = Mem::match_pk(&table, cond);
         let fields = vec![Field { name: "RoleGuid".to_string(), tpe: "varchar".to_string() }, Field { name: "TwoKey".to_string(), tpe: "int".to_string() }];
-        let res = mem.load_find(tbl.clone(), pv_map, conditions, Arc::new(Mutex::new(db)), &fields).unwrap();
+        let res = mem.load_find(&table, pv_map, conditions, Arc::new(Mutex::new(db)), &fields).unwrap();
         println!("{}", res);
     }
 }

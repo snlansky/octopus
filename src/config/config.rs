@@ -25,4 +25,6 @@ pub struct ZKS {
     pub multiple: i32,
 }
 
-pub fn init(file: String) {}
+pub fn init(file: String) {
+    println!("{}", file);
+}

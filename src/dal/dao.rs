@@ -4,7 +4,6 @@ use serde_json::Value as JsValue;
 use dal::db::DB;
 use dal::table::Table;
 use dal::error::Error;
-use std::rc::Rc;
 use serde_json::Map;
 use std::fmt::Display;
 use mysql::Row;
@@ -24,16 +23,16 @@ pub enum DaoResult {
     Rows(Vec<HashMap<String, JsValue>>),
 }
 
-pub struct Dao {
-    tbl: Rc<Table>,
+pub struct Dao<'a> {
+    tbl: &'a Table,
     sql: String,
     params: Vec<(String, MyValue)>,
     dml: DML,
     body: JsValue,
 }
 
-impl Dao {
-    pub fn new(tbl: Rc<Table>, dml: DML, body: JsValue) -> Dao {
+impl <'a>Dao<'a> {
+    pub fn new(tbl: &Table, dml: DML, body: JsValue) -> Dao {
         Dao {
             tbl,
             sql: String::new(),
@@ -288,14 +287,13 @@ mod tests {
     use dal::table::Table;
     use dal::table::Field;
     use dal::dao::DML;
-    use std::rc::Rc;
     use dal::db::DB;
     use dal::db::open_db;
     use std::sync::Arc;
     use std::sync::Mutex;
     use config::config::DBRoute;
 
-    fn new(dml: DML, body: Value) -> Dao {
+    fn new(dml: DML, body: Value) -> Dao<'static>{
         let db = "block".to_string();
         let model = "TbTestModel".to_string();
         let pks = vec!["RoleGuid".to_string(), "TwoKey".to_string()];
@@ -308,7 +306,7 @@ mod tests {
         ];
         let table = Table::default(db, model, pks, fields);
 
-        Dao::new(Rc::new(table), dml, body)
+        Dao::new(&table, dml, body)
     }
 
     fn get_db() -> DB {

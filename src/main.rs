@@ -14,7 +14,6 @@ extern crate threadpool;
 
 
 use config::config::init;
-use log::Level;
 
 mod dal;
 mod config;

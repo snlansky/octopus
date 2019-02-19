@@ -8,7 +8,8 @@ use dal::dao::DML;
 use dal::dao::DaoResult;
 use dal::mem::Mem;
 use threadpool::ThreadPool;
-use std::ops::Deref;
+use serde_json::Map;
+use dal::value::ConvertTo;
 
 pub struct Support {}
 
@@ -71,6 +72,31 @@ pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Ar
     }
 }
 
+pub fn find(db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
+    let cond = body.as_object()
+        .ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
+    let (pv_map, match_pk) = Mem::match_pk(table.clone(), &cond);
+
+    if mem.is_some() && match_pk {
+        let mut mem = mem.unwrap();
+        mem.load_find(table.clone(), pv_map, body.clone(), db.clone(), table.get_fields())
+    } else {
+        let mut dao = Dao::new(table.clone(), DML::Select, body);
+        match dao.exec_sql(db.clone())? {
+            DaoResult::Rows(rows) => {
+                let rows = rows.iter()
+                    .map(|f|{
+                        let v :Map<String, JsValue> = f.convert();
+                        JsValue::Object(v)
+                    })
+                    .collect::<Vec<JsValue>>();
+                Ok(JsValue::Array(rows))
+            }
+            _ => panic!("program bug"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use dal::support::modify;
@@ -88,6 +114,7 @@ mod tests {
     use serde_json::Value;
     use threadpool::ThreadPool;
     use std::{thread, time};
+    use dal::support::find;
 
 
     fn get_table_conn() -> (Table, Mem, DB) {
@@ -143,5 +170,15 @@ mod tests {
         let i = modify(&pool, Arc::new(Mutex::new(db)), Some(mem), Arc::new(table), body).unwrap();
         thread::sleep(time::Duration::from_secs(2));
         assert_eq!(json!(2), i);
+    }
+
+    #[test]
+    fn test_find(){
+        let (table, mem, db) = get_table_conn();
+        let data = r##"{"TwoKey__eq":2,"RoleGuid__eq":"0000009b120008004b64fb","limit":3,"operator":"AND","order":"TwoKey__DESC,CreateTimestamp__ASC"}"##;
+        let body: Value = serde_json::from_str(data).unwrap();
+        let res= find(Arc::new(Mutex::new(db)), Some(mem), Arc::new(table), body).unwrap();
+
+        println!("{}", res);
     }
 }

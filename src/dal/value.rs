@@ -51,6 +51,17 @@ impl ConvertTo<HashMap<String, String>> for Map<String, JsValue> {
     }
 }
 
+impl ConvertTo<Map<String, JsValue>> for HashMap<String, JsValue> {
+    fn convert(&self) -> Map<String, JsValue> {
+        let mut m = Map::with_capacity(self.len());
+
+        for (k, v) in self {
+            m.insert(k.clone(), v.clone());
+        }
+        m
+    }
+}
+
 // Map<String, JsValue>-> HashMap<String,String>
 impl ConvertTo<HashMap<String, JsValue>> for Map<String, JsValue> {
     fn convert(&self) -> HashMap<String, JsValue> {

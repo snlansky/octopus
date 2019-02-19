@@ -23,16 +23,16 @@ pub enum DaoResult {
     Rows(Vec<HashMap<String, JsValue>>),
 }
 
-pub struct Dao<'a> {
-    tbl: &'a Table,
+pub struct Dao {
+    tbl: Arc<Table>,
     sql: String,
     params: Vec<(String, MyValue)>,
     dml: DML,
     body: JsValue,
 }
 
-impl<'a> Dao<'a> {
-    pub fn new(tbl: &Table, dml: DML, body: JsValue) -> Dao {
+impl Dao {
+    pub fn new(tbl: Arc<Table>, dml: DML, body: JsValue) -> Dao {
         Dao {
             tbl,
             sql: String::new(),
@@ -293,7 +293,7 @@ mod tests {
     use std::sync::Mutex;
     use config::config::DBRoute;
 
-    fn new() -> Table {
+    fn new() -> Arc<Table> {
         let db = "block".to_string();
         let model = "TbTestModel".to_string();
         let pks = vec!["RoleGuid".to_string(), "TwoKey".to_string()];
@@ -304,7 +304,7 @@ mod tests {
                           Field { name: "CreateDate".to_string(), tpe: "datetime".to_string() },
                           Field { name: "CreateTimestamp".to_string(), tpe: "int".to_string() },
         ];
-        Table::default(db, model, pks, fields)
+        Arc::new(Table::default(db, model, pks, fields))
     }
 
     fn get_db() -> DB {
@@ -324,7 +324,7 @@ mod tests {
 
         let v: Value = serde_json::from_str(data).unwrap();
         let table = new();
-        let mut access = Dao::new(&table, DML::Insert, v);
+        let mut access = Dao::new(table, DML::Insert, v);
 
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();
@@ -337,7 +337,7 @@ mod tests {
         let data = r##"{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":3,"operator":"AND"}"##;
         let v: Value = serde_json::from_str(data).unwrap();
         let table = new();
-        let mut access = Dao::new(&table, DML::Delete, v);
+        let mut access = Dao::new(table, DML::Delete, v);
 
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();
@@ -350,7 +350,7 @@ mod tests {
         let data = r##"{"conditions":{"TwoKey__gte":1,"TwoKey__lte":9, "TwoKey__in":[21,31],"operator":"OR", "RoleGuid__like":"%9b%"},"values":{"CreateDate":"2017-02-23","CreateTimestamp":123}}"##;
         let v: Value = serde_json::from_str(data).unwrap();
         let table = new();
-        let mut access = Dao::new(&table, DML::Update, v);
+        let mut access = Dao::new(table, DML::Update, v);
 
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();
@@ -363,7 +363,7 @@ mod tests {
         let data = r##"{"TwoKey__eq":3,"limit":3,"operator":"AND","order":"TwoKey__DESC,CreateTimestamp__ASC"}"##;
         let v: Value = serde_json::from_str(data).unwrap();
         let table = new();
-        let mut access = Dao::new(&table, DML::Select, v);
+        let mut access = Dao::new(table, DML::Select, v);
 
         let db = Arc::new(Mutex::new(get_db()));
         let exec_res = access.exec_sql(db).unwrap();

@@ -33,7 +33,7 @@ impl Mem {
         Ok(conn)
     }
 
-    pub fn del(&mut self, tbl: &Table, mid: Vec<String>) -> Result<isize, Error> {
+    pub fn del(&mut self, tbl: Arc<Table>, mid: Vec<String>) -> Result<isize, Error> {
         let mut lua = LuaScript::new();
         lua.del(mid.clone());
         lua.srem(tbl.get_table_set_key(), mid);
@@ -42,10 +42,10 @@ impl Mem {
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 
-    pub fn load_update(&mut self, tbl: &Table, body: JsValue, db: Arc<Mutex<DB>>) -> Result<Vec<String>, Error> {
+    pub fn load_update(&mut self, tbl: Arc<Table>, body: JsValue, db: Arc<Mutex<DB>>) -> Result<Vec<String>, Error> {
         let conditions = body.get("conditions").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let cond = conditions.as_object().ok_or(Error::CommonError { info: "invalid json format at token conditions".to_string() })?;
-        let (pv_map, pk_match) = Self::match_pk(&tbl, cond);
+        let (pv_map, pk_match) = Self::match_pk(tbl.clone(), cond);
 
         let values = body.get("values").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let values = values.as_object().ok_or(Error::CommonError { info: "invalid json format at token values".to_string() })?;
@@ -63,7 +63,7 @@ impl Mem {
             }
         }
 
-        let mut dao = Dao::new(tbl, DML::Select, conditions.clone());
+        let mut dao = Dao::new(tbl.clone(), DML::Select, conditions.clone());
         let rows = match dao.exec_sql(db)? {
             DaoResult::Rows(rows) => rows,
             _ => panic!("program bug!"),
@@ -86,12 +86,12 @@ impl Mem {
         Ok(mids)
     }
 
-    pub fn load_find(&mut self, tbl: &Table, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>, fields: &Vec<Field>) -> Result<JsValue, Error> {
+    pub fn load_find(&mut self, tbl: Arc<Table>, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>, fields: &Vec<Field>) -> Result<JsValue, Error> {
         let mid = tbl.get_model_key(&pv);
         let conn = self.get_conn()?;
         let exist: bool = conn.exists(mid.clone())?;
         if !exist {
-            let mut dao = Dao::new(tbl, DML::Select, cond);
+            let mut dao = Dao::new(tbl.clone(), DML::Select, cond);
             let rows = match dao.exec_sql(db.clone())? {
                 DaoResult::Rows(rows) => rows,
                 _ => panic!("program bug!"),
@@ -112,7 +112,7 @@ impl Mem {
         }
 
 
-        let _: () = self.try_register_schema(tbl, &conn)?;
+        let _: () = self.try_register_schema(tbl.clone(), &conn)?;
 
         let row;
         if fields.len() > 0 {
@@ -123,7 +123,7 @@ impl Mem {
         Ok(JsValue::Array(vec![row]))
     }
 
-    pub fn match_pk(tbl: &Table, cond: &Map<String, JsValue>) -> (HashMap<String, JsValue>, bool) {
+    pub fn match_pk(tbl: Arc<Table>, cond: &Map<String, JsValue>) -> (HashMap<String, JsValue>, bool) {
         let pks = tbl.get_pks();
         let pv = pks.iter()
             .filter_map(|key| {
@@ -135,7 +135,7 @@ impl Mem {
     }
 
     // 在cache中注册模式
-    pub fn try_register_schema(&self, tbl: &Table, con: &Connection) -> Result<(), Error> {
+    pub fn try_register_schema(&self, tbl: Arc<Table>, con: &Connection) -> Result<(), Error> {
         let exist: bool = con.exists(tbl.get_table_schema_key())?;
         if exist {
             return Ok(());
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn test_mem_del() {
         let (table, mut mem, _) = get_table_conn();
-        let res = mem.del(&table, vec!["block:TbTestModel:RoleGuid,TwoKey:0000009b790008004b64fb,3".to_string()]).unwrap();
+        let res = mem.del(Arc::new(table), vec!["block:TbTestModel:RoleGuid,TwoKey:0000009b790008004b64fb,3".to_string()]).unwrap();
 
         assert_eq!(res, 1);
     }
@@ -224,7 +224,7 @@ mod tests {
         let data = r##"{"conditions":{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":"3","operator":"AND"},"values":{"CreateDate":"2017-00-00","CreateDatetime":"2017-00-00 09:16:55","CreateTime":"10:00:00","CreateTimestamp":"1"}}"##;
         let body: Value = serde_json::from_str(data).unwrap();
 
-        let res = mem.load_update(&table, body, Arc::new(Mutex::new(db))).unwrap();
+        let res = mem.load_update(Arc::new(table), body, Arc::new(Mutex::new(db))).unwrap();
         assert_eq!(res.len(), 1);
     }
 
@@ -236,9 +236,10 @@ mod tests {
 
         let cond = conditions.clone();
         let cond = cond.as_object().unwrap();
-        let (pv_map, _) = Mem::match_pk(&table, cond);
+        let table = Arc::new(table);
+        let (pv_map, _) = Mem::match_pk(table.clone(), cond);
         let fields = vec![Field { name: "RoleGuid".to_string(), tpe: "varchar".to_string() }, Field { name: "TwoKey".to_string(), tpe: "int".to_string() }];
-        let res = mem.load_find(&table, pv_map, conditions, Arc::new(Mutex::new(db)), &fields).unwrap();
+        let res = mem.load_find(table, pv_map, conditions, Arc::new(Mutex::new(db)), &fields).unwrap();
         println!("{}", res);
     }
 }

@@ -12,7 +12,7 @@ use std::ops::Deref;
 
 pub struct Support {}
 
-pub fn add(db: Arc<Mutex<DB>>, tbl: &Table, body: JsValue) -> Result<JsValue, Error> {
+pub fn add(db: Arc<Mutex<DB>>, tbl: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
     let mut dao = Dao::new(tbl, DML::Insert, body);
     match dao.exec_sql(db)? {
         DaoResult::Affected(i) => Ok(json!(i)),
@@ -20,9 +20,9 @@ pub fn add(db: Arc<Mutex<DB>>, tbl: &Table, body: JsValue) -> Result<JsValue, Er
     }
 }
 
-pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: &Table, body: JsValue) -> Result<JsValue, Error> {
+pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
     if let Some(mut mem) = mem {
-        let mut dao = Dao::new(tbl, DML::Select, body.clone());
+        let mut dao = Dao::new(tbl.clone(), DML::Select, body.clone());
         let rows = match dao.exec_sql(db.clone())? {
             DaoResult::Rows(rows) => rows,
             _ => panic!("program bug"),
@@ -33,7 +33,7 @@ pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: &Table, body: JsValue) 
             })
             .collect::<Vec<_>>();
         if mids.len() > 0 {
-            mem.del(tbl, mids)?;
+            mem.del(tbl.clone(), mids)?;
         }
     }
 
@@ -44,32 +44,30 @@ pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: &Table, body: JsValue) 
     }
 }
 
-pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: &Table, body: JsValue) -> Result<JsValue, Error> {
-    let table= Arc::new(table);
-
-    let up_dao = move |tbl: Arc<&Table>| -> Result<JsValue, Error>{
-        let mut dao = Dao::new(tbl.deref(), DML::Update, body);
-        match dao.exec_sql(db.clone())? {
+pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
+    let db1= db.clone();
+    let body1 = body.clone();
+    let up_dao = move |tbl: Arc<Table>| -> Result<JsValue, Error>{
+        let mut dao = Dao::new(tbl, DML::Update, body1);
+        match dao.exec_sql(db1)? {
             DaoResult::Affected(i) => Ok(json!(i)),
             _ => panic!("program bug"),
         }
     };
 
-    let t1 = table.clone();
     if let Some(mut mem) = mem {
-        let mids = mem.load_update(t1.deref(), body.clone(), db.clone())?;
+        let mids = mem.load_update(table.clone(), body.clone(), db.clone())?;
         let i = mids.len();
-        let t2 = table.clone();
+        let t1= table.clone();
         pool.execute(move || {
-
-            let res = up_dao(t2);
+            let res = up_dao(t1.clone());
             if res.is_err() {
-                mem.del(t2.deref(), mids).unwrap();
+                mem.del(t1, mids).unwrap();
             }
         });
         Ok(json!(i))
     } else {
-        up_dao(t1)
+        up_dao(table)
     }
 }
 
@@ -127,22 +125,22 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let (table,  mem,  db) = get_table_conn();
+        let (table, mem, db) = get_table_conn();
         let data = r##"{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":3,"operator":"AND"}"##;
         let body: Value = serde_json::from_str(data).unwrap();
         let mem: Option<Mem> = Some(mem);
-        let i = remove(Arc::new(Mutex::new(db)), mem, &table, body).unwrap();
+        let i = remove(Arc::new(Mutex::new(db)), mem, Arc::new(table), body).unwrap();
         assert_eq!(json!(1), i);
     }
 
     #[test]
     fn test_modify() {
-        let (table,  mem,  db) = get_table_conn();
+        let (table, mem, db) = get_table_conn();
         let data = r##"{"conditions":{"TwoKey__gte":1,"TwoKey__lte":9, "TwoKey__in":[21,31],"operator":"OR", "RoleGuid__like":"%9b%"},"values":{"CreateDate":"2017-02-23","CreateTimestamp":123}}"##;
         let body: Value = serde_json::from_str(data).unwrap();
 
         let pool = ThreadPool::new(2);
-        let i = modify(&pool, Arc::new(Mutex::new(db)), Some(mem), &table, body).unwrap();
+        let i = modify(&pool, Arc::new(Mutex::new(db)), Some(mem), Arc::new(table), body).unwrap();
         thread::sleep(time::Duration::from_secs(2));
         assert_eq!(json!(2), i);
     }

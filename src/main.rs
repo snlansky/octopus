@@ -34,16 +34,16 @@ fn main() {
             .short("c")
             .long("cluster")
             .value_name("ADDRESS")
-            .required(true)
-            .help("the zookeeper cluster address."))
+            .help("The zookeeper cluster address.")
+            .takes_value(true))
         .arg(Arg::with_name("path")
             .short("p")
             .long("path")
-            .required(true)
-            .help("the config path at zookeeper."))
+            .help("The config path at zookeeper.")
+            .takes_value(true))
         .get_matches();
 
-    let cluster = matches.value_of("path").unwrap();
-    println!("--{:?}", cluster);
+    let cluster = matches.value_of("cluster").unwrap_or("127.0.0.1:2181");
+    let path = matches.value_of("path").unwrap_or("/dal_orm_release");
+    info!("{} {}", cluster, path);
 }
-

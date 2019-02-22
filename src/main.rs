@@ -15,6 +15,9 @@ extern crate clap;
 
 use config::config::init;
 use clap::{Arg, App, SubCommand};
+use std::thread::sleep;
+use std::time::Duration;
+use discovery::zk::ServiceRegister;
 
 
 mod dal;
@@ -23,8 +26,6 @@ mod discovery;
 
 fn main() {
     env_logger::init();
-    init("service.json".to_string());
-    debug!("ok");
 
     let matches = App::new("octopus")
         .version("1.0")
@@ -43,7 +44,10 @@ fn main() {
             .takes_value(true))
         .get_matches();
 
-    let cluster = matches.value_of("cluster").unwrap_or("127.0.0.1:2181");
+    let cluster = matches.value_of("cluster").unwrap_or("www.snlan.top:2181,www.snlan.top:2182,www.snlan.top:2183");
     let path = matches.value_of("path").unwrap_or("/dal_orm_release");
+
     info!("{} {}", cluster, path);
+
+    ServiceRegister::init(cluster, path);
 }

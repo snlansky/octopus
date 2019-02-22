@@ -1,7 +1,11 @@
 extern crate redis;
 extern crate mysql;
 #[macro_use]
+extern crate serde;
+#[macro_use]
 extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
 #[macro_use]
 extern crate failure;
 extern crate core;
@@ -18,6 +22,8 @@ use clap::{Arg, App, SubCommand};
 use std::thread::sleep;
 use std::time::Duration;
 use discovery::zk::ServiceRegister;
+use std::sync::mpsc::Receiver;
+use config::config::Services;
 
 
 mod dal;
@@ -49,5 +55,9 @@ fn main() {
 
     info!("{} {}", cluster, path);
 
-    ServiceRegister::init(cluster, path);
+    let sr = ServiceRegister::new(cluster);
+    let _: () = sr.watch_data(path.to_string(), move |f| {println!("{:?}", f)}).unwrap();
+
+//    provider = Provider::new(services : Receiver<Services>)
+
 }

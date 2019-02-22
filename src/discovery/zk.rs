@@ -4,6 +4,7 @@ use std::time::Duration;
 use std::sync::Arc;
 use std::sync::mpsc::channel;
 use std::thread;
+use zookeeper::ZkError;
 
 struct LoggingWatcher;
 
@@ -13,26 +14,25 @@ impl Watcher for LoggingWatcher {
     }
 }
 
-pub struct ServiceRegister {}
+pub struct ServiceRegister {
+    zk: Arc<ZooKeeper>,
+}
 
 impl ServiceRegister {
-    pub fn init(urls: &str, root_path: &str) {
+    pub fn new(urls: &str) -> Self {
         let listen = thread::spawn(move || {});
 
         let zk = ZooKeeper::connect(urls, Duration::from_secs(15), LoggingWatcher).unwrap();
+        ServiceRegister { zk: Arc::new(zk) }
+    }
 
-        let zk_arc = Arc::new(zk);
-        let mut pcc = PathChildrenCache::new(zk_arc.clone(), "/").unwrap();
-        match pcc.start() {
-            Err(e) => panic!(e),
-            _ => info!("root path cache started"),
-        }
+    pub fn watch_data<>(&self, path: String, on_update: fn(Arc<Vec<u8>>)) -> Result<(), ZkError> {
+        let mut pcc = PathChildrenCache::new(self.zk.clone(), "/").unwrap();
+        let _ :() = pcc.start()?;
 
         let (ev_tx, ev_rx) = channel();
-
         pcc.add_listener(move |e| ev_tx.send(e).unwrap());
 
-        let root = root_path.to_string();
         thread::spawn(move || {
             for ev in ev_rx {
                 match ev {
@@ -41,7 +41,7 @@ impl ServiceRegister {
                         println!("=>{}", node);
                     }
                     PathChildrenCacheEvent::ChildUpdated(node, data) => {
-                        if node.eq(&root) {
+                        if node.eq(&path) {
                             info!("config update {:?}", data);
                         }
                     }
@@ -49,5 +49,6 @@ impl ServiceRegister {
                 }
             }
         });
+        Ok(())
     }
 }

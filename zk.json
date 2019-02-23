@@ -1,5 +1,5 @@
 {
-    "Path": "/chaos_orm_release",
+    "Path": "/dal_orm_release",
     "Servers": [
         "www.snlan.top:2181",
         "www.snlan.top:2182",

@@ -55,9 +55,16 @@ fn main() {
 
     info!("{} {}", cluster, path);
 
-    let sr = ServiceRegister::new(cluster);
-    let _: () = sr.watch_data(path.to_string(), move |f| {println!("{:?}", f)}).unwrap();
+    let mut sr = ServiceRegister::new(cluster);
+
+    let _:() = ServiceRegister::watch_data(sr.clone(), path.to_string(), move |f| {println!("{:?}", f)}).unwrap();
+//    let _: () = sr.watch_data(path.to_string(), move |f| {println!("{:?}", f)}).unwrap();
+//    sr.wait_stop().join();
+
+    let  wait = ServiceRegister::wait_stop(sr.clone());
+    wait.join();
 
 //    provider = Provider::new(services : Receiver<Services>)
 
+//    sleep(Duration::from_secs(100));
 }

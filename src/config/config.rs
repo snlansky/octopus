@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use serde_derive::{Serialize, Deserialize};
-use std::ops::Deref;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DBRoute {

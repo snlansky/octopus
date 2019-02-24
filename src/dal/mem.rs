@@ -66,7 +66,7 @@ impl Mem {
         let mut dao = Dao::new(tbl.clone(), DML::Select, conditions.clone());
         let rows = match dao.exec_sql(db)? {
             DaoResult::Rows(rows) => rows,
-            _ => panic!("program bug!"),
+            _ => unreachable!(),
         };
         let mut lua = LuaScript::new();
         let mut mids = Vec::with_capacity(rows.len());
@@ -94,7 +94,7 @@ impl Mem {
             let mut dao = Dao::new(tbl.clone(), DML::Select, cond);
             let rows = match dao.exec_sql(db.clone())? {
                 DaoResult::Rows(rows) => rows,
-                _ => panic!("program bug!"),
+                _ => unreachable!(),
             };
             if rows.len() == 0 {
                 return Ok(JsValue::Array(Vec::new()));

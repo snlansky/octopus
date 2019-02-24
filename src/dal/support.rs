@@ -17,7 +17,7 @@ pub fn add(db: Arc<Mutex<DB>>, tbl: Arc<Table>, body: JsValue) -> Result<JsValue
     let mut dao = Dao::new(tbl, DML::Insert, body);
     match dao.exec_sql(db)? {
         DaoResult::Affected(i) => Ok(json!(i)),
-        _ => panic!("program bug"),
+        _ => unreachable!(),
     }
 }
 
@@ -26,7 +26,7 @@ pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Arc<Table>, body: JsVal
         let mut dao = Dao::new(tbl.clone(), DML::Select, body.clone());
         let rows = match dao.exec_sql(db.clone())? {
             DaoResult::Rows(rows) => rows,
-            _ => panic!("program bug"),
+            _ => unreachable!(),
         };
         let mids = rows.iter()
             .map(|row| {
@@ -41,7 +41,7 @@ pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Arc<Table>, body: JsVal
     let mut dao = Dao::new(tbl, DML::Delete, body);
     match dao.exec_sql(db.clone())? {
         DaoResult::Affected(i) => Ok(json!(i)),
-        _ => panic!("program bug"),
+        _ => unreachable!(),
     }
 }
 
@@ -52,7 +52,7 @@ pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Ar
         let mut dao = Dao::new(tbl, DML::Update, body1);
         match dao.exec_sql(db1)? {
             DaoResult::Affected(i) => Ok(json!(i)),
-            _ => panic!("program bug"),
+            _ => unreachable!(),
         }
     };
 
@@ -92,7 +92,7 @@ pub fn find(db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Arc<Table>, body: JsVal
                     .collect::<Vec<JsValue>>();
                 Ok(JsValue::Array(rows))
             }
-            _ => panic!("program bug"),
+            _ => unreachable!(),
         }
     }
 }

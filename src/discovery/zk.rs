@@ -32,37 +32,32 @@ pub struct ServiceRegister {
 
 
 impl ServiceRegister {
-    pub fn new(urls: &str) -> Arc<Mutex<Self>> {
-        let listen = thread::spawn(move || {});
-
+    pub fn new(urls: &str) -> Self {
         let zk = ZooKeeper::connect(urls, Duration::from_secs(15), LoggingWatcher).unwrap();
-
         let (tx, rx) = channel();
-        let sr = ServiceRegister {
+        ServiceRegister {
             zk,
             on_update: HashMap::new(),
             event_tx: Arc::new(tx),
             event_rx: Arc::new(rx),
-        };
-        Arc::new(Mutex::new(sr))
+        }
     }
 
-    pub fn watch_data(this :Arc<Mutex<Self>>, path: String, on_update: EventCallBack) -> Result<(), ZkError> {
+    pub fn watch_data(&mut self, path: String, on_update: EventCallBack) -> Result<(), ZkError> {
         let (parent, node) = Self::split(path.clone());
 
-        let sr = this.lock().unwrap();
-        sr.on_update.insert(path.clone(), on_update);
+        self.on_update.insert(path.clone(), on_update);
 
-        let mut pcc = PathChildrenCache::new(Arc::new(sr.zk), parent.as_str()).unwrap();
+        let mut pcc = PathChildrenCache::new(Arc::new(self.zk), parent.as_str()).unwrap();
         let _: () = pcc.start()?;
 
-        let rx = sr.event_tx.clone();
+        let rx = self.event_tx.clone();
         pcc.add_listener(move |event| {
             match event {
                 PathChildrenCacheEvent::ChildUpdated(child, data) => {
                     if child.eq(&node) {
-                        let (value, _) = data.deref();
-                        let v = Arc::new((child, value.clone()));
+                        let value = data.0;
+                        let v = Arc::new((child, value));
                         match rx.send(v) {
                             Err(err) => { error!("{} send event error:{:?}", path.clone(), err); }
                             _ => (),
@@ -89,11 +84,10 @@ impl ServiceRegister {
         }
     }
 
-    pub fn wait_stop(this: Arc<Mutex<Self>>) -> JoinHandle<()> {
+    pub fn wait_stop(&self) -> JoinHandle<()> {
+        let rs = Arc::new(self);
         thread::spawn(move || {
-            let rs = this.lock().unwrap();
-            let rx = rs.event_rx.deref();
-            for sv in rx {
+            for sv in rs.event_rx.deref() {
                 let (path, value) = sv.deref();
                 if let Some(f) = rs.on_update.get(path) {
                     f(value);

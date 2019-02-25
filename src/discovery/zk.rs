@@ -1,16 +1,11 @@
-use zookeeper::{Watcher, WatchedEvent, ZooKeeper};
-use zookeeper::recipes::cache::{PathChildrenCache, PathChildrenCacheEvent};
+use zookeeper::Watcher;
+use zookeeper::WatchedEvent;
+use zookeeper::ZooKeeper;
 use std::time::Duration;
-use std::sync::Arc;
 use std::sync::mpsc::channel;
-use std::thread;
-use zookeeper::ZkError;
-use std::collections::HashMap;
-use std::sync::mpsc::Sender;
-use std::sync::mpsc::Receiver;
-use std::thread::JoinHandle;
-use std::ops::Deref;
+use std::sync::Arc;
 use std::sync::Mutex;
+use zookeeper::ZkError;
 
 struct LoggingWatcher;
 
@@ -20,56 +15,37 @@ impl Watcher for LoggingWatcher {
     }
 }
 
-type EventCallBack = fn(&Vec<u8>);
-type SafeValue = Arc<(String, Vec<u8>)>;
-
 pub struct ServiceRegister {
     zk: ZooKeeper,
-    on_update: HashMap<String, EventCallBack>,
-    event_tx: Arc<Sender<SafeValue>>,
-    event_rx: Arc<Receiver<SafeValue>>,
 }
 
+type EventCallBack=fn(&Vec<u8>) ->bool;
 
 impl ServiceRegister {
     pub fn new(urls: &str) -> Self {
-        let zk = ZooKeeper::connect(urls, Duration::from_secs(15), LoggingWatcher).unwrap();
-        let (tx, rx) = channel();
+        let zk = ZooKeeper::connect(urls,
+                                    Duration::from_secs(15),
+                                    LoggingWatcher).unwrap();
         ServiceRegister {
             zk,
-            on_update: HashMap::new(),
-            event_tx: Arc::new(tx),
-            event_rx: Arc::new(rx),
         }
     }
 
-    pub fn watch_data(&mut self, path: String, on_update: EventCallBack) -> Result<(), ZkError> {
-        let (parent, node) = Self::split(path.clone());
-
-        self.on_update.insert(path.clone(), on_update);
-
-        let mut pcc = PathChildrenCache::new(Arc::new(self.zk), parent.as_str()).unwrap();
-        let _: () = pcc.start()?;
-
-        let rx = self.event_tx.clone();
-        pcc.add_listener(move |event| {
-            match event {
-                PathChildrenCacheEvent::ChildUpdated(child, data) => {
-                    if child.eq(&node) {
-                        let value = data.0;
-                        let v = Arc::new((child, value));
-                        match rx.send(v) {
-                            Err(err) => { error!("{} send event error:{:?}", path.clone(), err); }
-                            _ => (),
-                        }
-                    }
-                }
-                _ => (),
-            }
-        });
+    pub fn watch_data(&mut self, path: String, on_update: EventCallBack)->Result<(), ZkError> {
+        let (ev_tx, ev_rx) = channel();
+        let arc_rx = Arc::new(Mutex::new(ev_tx));
+        loop{
+            let rx = arc_rx.clone();
+            let (data, _) = self.zk.get_data_w(path.as_str(), move|f:WatchedEvent|{
+               rx.lock().unwrap().send(f).unwrap();
+            })?;
+            if !on_update(&data) {
+                break;
+            };
+            ev_rx.recv().unwrap();
+        }
         Ok(())
     }
-
 
     fn split(path: String) -> (String, String) {
         if !path.contains("/") {
@@ -82,17 +58,5 @@ impl ServiceRegister {
             let node = v.pop().unwrap();
             (format!("/{}", v.join("/")), node.to_string())
         }
-    }
-
-    pub fn wait_stop(&self) -> JoinHandle<()> {
-        let rs = Arc::new(self);
-        thread::spawn(move || {
-            for sv in rs.event_rx.deref() {
-                let (path, value) = sv.deref();
-                if let Some(f) = rs.on_update.get(path) {
-                    f(value);
-                }
-            }
-        })
     }
 }

@@ -57,8 +57,8 @@ fn main() {
 
     let mut sr = ServiceRegister::new(cluster);
 
-    let _: () = sr.watch_data(path.to_string(), move |f| { println!("{:?}", f); true }).unwrap();
-    
+    let _: () = sr.watch_data(path, move |f| { println!("{:?}", f); true }).unwrap();
+
 //    provider = Provider::new(services : Receiver<Services>)
 
     sleep(Duration::from_secs(100));

@@ -31,12 +31,12 @@ impl ServiceRegister {
         }
     }
 
-    pub fn watch_data(&mut self, path: String, on_update: EventCallBack)->Result<(), ZkError> {
+    pub fn watch_data(&mut self, path: &str, on_update: EventCallBack)->Result<(), ZkError> {
         let (ev_tx, ev_rx) = channel();
         let arc_rx = Arc::new(Mutex::new(ev_tx));
         loop{
             let rx = arc_rx.clone();
-            let (data, _) = self.zk.get_data_w(path.as_str(), move|f:WatchedEvent|{
+            let (data, _) = self.zk.get_data_w(path, move|f:WatchedEvent|{
                rx.lock().unwrap().send(f).unwrap();
             })?;
             if !on_update(&data) {

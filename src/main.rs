@@ -16,14 +16,12 @@ extern crate env_logger;
 extern crate threadpool;
 extern crate clap;
 
-
-use config::config::init;
-use clap::{Arg, App, SubCommand};
+use clap::App;
+use discovery::zk::ServiceRegister;
 use std::thread::sleep;
 use std::time::Duration;
-use discovery::zk::ServiceRegister;
-use std::sync::mpsc::Receiver;
-use config::config::Services;
+use config::config::Provider;
+use clap::Arg;
 
 
 mod dal;
@@ -33,7 +31,7 @@ mod discovery;
 fn main() {
     env_logger::init();
 
-    let matches = App::new("octopus")
+    let matches  = App::new("octopus")
         .version("1.0")
         .author("snlan@live.cn")
         .about("data bus")
@@ -57,9 +55,12 @@ fn main() {
 
     let mut sr = ServiceRegister::new(cluster);
 
-    let _: () = sr.watch_data(path, move |f| { println!("{:?}", f); true }).unwrap();
+    let provider = Provider::new(path, &sr);
 
-//    provider = Provider::new(services : Receiver<Services>)
+    loop {
+        let s = provider.watch();
+        println!("-->{:?}", s);
+    }
 
     sleep(Duration::from_secs(100));
 }

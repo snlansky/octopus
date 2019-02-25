@@ -6,6 +6,7 @@ use std::sync::mpsc::channel;
 use std::sync::Arc;
 use std::sync::Mutex;
 use zookeeper::ZkError;
+use std::sync::mpsc::Sender;
 
 struct LoggingWatcher;
 
@@ -19,8 +20,6 @@ pub struct ServiceRegister {
     zk: ZooKeeper,
 }
 
-type EventCallBack=fn(&Vec<u8>) ->bool;
-
 impl ServiceRegister {
     pub fn new(urls: &str) -> Self {
         let zk = ZooKeeper::connect(urls,
@@ -31,13 +30,14 @@ impl ServiceRegister {
         }
     }
 
-    pub fn watch_data(&mut self, path: &str, on_update: EventCallBack)->Result<(), ZkError> {
+    pub fn watch_data<F>(&self, path: &str, on_update: F) -> Result<(), ZkError>
+        where F: Fn(&Vec<u8>) -> bool {
         let (ev_tx, ev_rx) = channel();
         let arc_rx = Arc::new(Mutex::new(ev_tx));
-        loop{
+        loop {
             let rx = arc_rx.clone();
-            let (data, _) = self.zk.get_data_w(path, move|f:WatchedEvent|{
-               rx.lock().unwrap().send(f).unwrap();
+            let (data, _) = self.zk.get_data_w(path, move |f: WatchedEvent| {
+                rx.lock().unwrap().send(f).unwrap();
             })?;
             if !on_update(&data) {
                 break;
@@ -45,6 +45,13 @@ impl ServiceRegister {
             ev_rx.recv().unwrap();
         }
         Ok(())
+    }
+
+    pub fn get_data(&self, path: &str, sign: Arc<Mutex<Sender<WatchedEvent>>>) -> Result<Vec<u8>, ZkError> {
+        let (data, _) = self.zk.get_data_w(path, move |f: WatchedEvent| {
+            sign.lock().unwrap().send(f).unwrap();
+        })?;
+        Ok(data)
     }
 
     fn split(path: String) -> (String, String) {

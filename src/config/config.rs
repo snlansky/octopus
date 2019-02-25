@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use serde_derive::{Serialize, Deserialize};
+use discovery::zk::ServiceRegister;
+use std::sync::mpsc::channel;
+use std::sync::mpsc::Receiver;
+use serde_json::Error;
+use std::sync::mpsc::Sender;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DBRoute {
@@ -42,16 +47,32 @@ pub struct Services {
     data: HashMap<String, DBRoute>,
 }
 
-impl Services {
-    pub fn new(config :Vec<u8>) -> Self {
-        let data = config.as_slice();
-
-//        let s = String::from_utf8(data).unwrap().as_str();
-        serde_json::from_slice(data).unwrap()
-    }
+pub struct Provider {
+//    tx: Sender<Vec<u8>>,
+    rx: Receiver<Vec<u8>>,
 }
 
+impl Provider {
+    pub fn new(path: &str, sr: &ServiceRegister) -> Self {
+        let (tx, rx) = channel();
 
-pub fn init(file: String) {
-    println!("{}", file);
+        sr.watch_data(path, move|f|{
+            tx.send(f.clone()).unwrap();
+            true
+        }).unwrap();
+        Provider{rx}
+    }
+
+    pub fn watch(&self) -> Services {
+        let data = self.rx.recv().unwrap();
+        let res: Result<Services, Error> = serde_json::from_slice(data.as_slice());
+
+        match res {
+            Ok(s) => s,
+            _ => {
+                error!("unmarshal json error");
+                self.watch()
+            }
+        }
+    }
 }

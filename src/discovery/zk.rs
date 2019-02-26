@@ -17,7 +17,7 @@ impl Watcher for LoggingWatcher {
 }
 
 pub struct ServiceRegister {
-    zk: ZooKeeper,
+    pub zk: ZooKeeper,
 }
 
 impl ServiceRegister {
@@ -33,11 +33,11 @@ impl ServiceRegister {
     pub fn watch_data<F>(&self, path: &str, on_update: F) -> Result<(), ZkError>
         where F: Fn(&Vec<u8>) -> bool {
         let (ev_tx, ev_rx) = channel();
-        let arc_rx = Arc::new(Mutex::new(ev_tx));
+        let arc_tx = Arc::new(Mutex::new(ev_tx));
         loop {
-            let rx = arc_rx.clone();
+            let tx = arc_tx.clone();
             let (data, _) = self.zk.get_data_w(path, move |f: WatchedEvent| {
-                rx.lock().unwrap().send(f).unwrap();
+                tx.lock().unwrap().send(f).unwrap();
             })?;
             if !on_update(&data) {
                 break;

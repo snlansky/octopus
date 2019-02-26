@@ -202,9 +202,10 @@ mod tests {
         let dbr = DBRoute {
             engine: String::from("Mysql"),
             user: String::from("snlan"),
-            pass: String::from("snlan"),
-            addr: String::from("www.snlan.top"),
-            db: String::from("block"),
+            passwd: String::from("snlan"),
+            address: String::from("www.snlan.top"),
+            port: 3306,
+            name: String::from("block"),
         };
         let db = open_db(dbr).unwrap();
         (table, mem, db)

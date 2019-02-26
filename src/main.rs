@@ -22,6 +22,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use config::config::Provider;
 use clap::Arg;
+use std::sync::Arc;
 
 
 mod dal;
@@ -55,7 +56,7 @@ fn main() {
 
     let mut sr = ServiceRegister::new(cluster);
 
-    let provider = Provider::new(path, &sr);
+    let mut provider = Provider::new(path, Arc::new(sr));
 
     loop {
         let s = provider.watch();

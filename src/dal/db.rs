@@ -73,7 +73,6 @@ impl DB {
     }
 
 
-
     pub fn get_conn(&mut self) -> Result<PooledConn, Error> {
         let conn = self.pool.get_conn()?;
         Ok(conn)
@@ -86,9 +85,10 @@ impl DB {
 }
 
 pub fn open_db(cfg: DBRoute) -> Result<DB, Error> {
-    let addr = format!("mysql://{}:{}@{}/{}", cfg.user, cfg.pass, cfg.addr, cfg.db);
+    let addr = format!("mysql://{}:{}@{}:{}/{}",
+                       cfg.user, cfg.passwd, cfg.address, cfg.port, cfg.name);
     match Pool::new(addr) {
-        Ok(pool) => Ok(DB::new(cfg.db, pool)),
+        Ok(pool) => Ok(DB::new(cfg.name, pool)),
         Err(err) => Err(Error::from(err)),
     }
 }
@@ -117,23 +117,5 @@ impl DBManger {
             Some(db) => Some(Box::new(db)),
             None => None,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn get_db()->DB {
-
-        let dbr = DBRoute {
-            engine: String::from("Mysql"),
-            user: String::from("snlan"),
-            pass: String::from("snlan"),
-            addr: String::from("www.snlan.top"),
-            db: String::from("block"),
-        };
-        open_db(dbr).unwrap()
-
     }
 }

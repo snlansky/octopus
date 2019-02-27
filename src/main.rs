@@ -15,6 +15,8 @@ extern crate log;
 extern crate env_logger;
 extern crate threadpool;
 extern crate clap;
+//extern crate protobuf;
+//extern crate grpc;
 
 use clap::App;
 use discovery::Register;
@@ -24,11 +26,13 @@ use clap::Arg;
 use std::sync::Arc;
 use config::Config;
 use config::Provider;
+use dal::Support;
 
 
 mod dal;
 mod config;
 mod discovery;
+mod proto;
 
 fn main() {
     env_logger::init();
@@ -55,15 +59,11 @@ fn main() {
 
     info!("{} {}", cluster, path);
 
-    let mut sr = Register::new(cluster);
+    let mut arc_register = Arc::new(Register::new(cluster));
 
-    let mut provider = Config::new(path, Arc::new(sr));
+    let mut provider = Config::new(path, arc_register.clone());
 
-
-    loop {
-        let s = provider.watch();
-        println!("-->{:?}", s);
-    }
+    let support = Support::new(arc_register, provider);
 
     sleep(Duration::from_secs(100));
 }

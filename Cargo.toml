@@ -1,7 +1,9 @@
 [package]
 name = "octopus"
+description = "Multi-database management bus."
+repository = "https://github.com/snlansky/octopus"
 version = "0.1.0"
-authors = ["snlan"]
+authors = ["snlansky <snlansky@gmail.com>"]
 
 [dependencies]
 mysql = "15.0.0"
@@ -16,3 +18,8 @@ env_logger = "0.6.0"
 zookeeper = "0.5.5"
 threadpool = "1.7.1"
 clap = "2.32.0"
+#grpc = "0.6.1"
+#protobuf = "2.3.0"
+
+[build-dependencies]
+protoc-rust-grpc = "0.6.1"

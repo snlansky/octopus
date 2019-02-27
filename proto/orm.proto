@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "grpc.external.ormroute";
+option java_outer_classname = "OrmRouteProto";
+
+package ormroute;
+
+service OrmRoute {
+    rpc Add(OneReq) returns (Result) {}
+    rpc Remove(OneReq) returns (Result) {}
+    rpc Modify(OneReq) returns (Result) {}
+    rpc Find(OneReq) returns (Result) {}
+    rpc Transact(OneReq) returns (Result) {}
+}
+
+message Uri {
+    string trace = 1;
+    string db = 2;
+    string orm = 3;
+    string pk = 4;
+    string columns = 5;
+}
+
+message OneReq {
+    Uri descrip = 1;
+    bytes body = 2;
+}
+
+message Result {
+    bytes content = 3;
+}

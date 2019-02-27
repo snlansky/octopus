@@ -10,8 +10,25 @@ use dal::mem::Mem;
 use threadpool::ThreadPool;
 use serde_json::Map;
 use dal::value::ConvertTo;
+use discovery::Register;
+use config::Provider;
 
-pub struct Support {}
+pub struct Support<T: Provider> {
+    register: Arc<Register>,
+    provider: T,
+}
+
+impl<T: Provider> Support<T> {
+    pub fn new(register: Arc<Register>, mut provider:T) -> Self {
+//
+//        loop {
+//            let s = provider.watch();
+//            println!("-->{:?}", s);
+//        }
+        Support { register, provider }
+    }
+}
+
 
 pub fn add(db: Arc<Mutex<DB>>, tbl: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
     let mut dao = Dao::new(tbl, DML::Insert, body);
@@ -46,7 +63,7 @@ pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Arc<Table>, body: JsVal
 }
 
 pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
-    let db1= db.clone();
+    let db1 = db.clone();
     let body1 = body.clone();
     let up_dao = move |tbl: Arc<Table>| -> Result<JsValue, Error>{
         let mut dao = Dao::new(tbl, DML::Update, body1);
@@ -59,7 +76,7 @@ pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Ar
     if let Some(mut mem) = mem {
         let mids = mem.load_update(table.clone(), body.clone(), db.clone())?;
         let i = mids.len();
-        let t1= table.clone();
+        let t1 = table.clone();
         pool.execute(move || {
             let res = up_dao(t1.clone());
             if res.is_err() {
@@ -85,8 +102,8 @@ pub fn find(db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Arc<Table>, body: JsVal
         match dao.exec_sql(db.clone())? {
             DaoResult::Rows(rows) => {
                 let rows = rows.iter()
-                    .map(|f|{
-                        let v :Map<String, JsValue> = f.convert();
+                    .map(|f| {
+                        let v: Map<String, JsValue> = f.convert();
                         JsValue::Object(v)
                     })
                     .collect::<Vec<JsValue>>();
@@ -174,11 +191,11 @@ mod tests {
     }
 
     #[test]
-    fn test_find(){
+    fn test_find() {
         let (table, mem, db) = get_table_conn();
         let data = r##"{"TwoKey__eq":2,"RoleGuid__eq":"0000009b120008004b64fb","limit":3,"operator":"AND","order":"TwoKey__DESC,CreateTimestamp__ASC"}"##;
         let body: Value = serde_json::from_str(data).unwrap();
-        let res= find(Arc::new(Mutex::new(db)), Some(mem), Arc::new(table), body).unwrap();
+        let res = find(Arc::new(Mutex::new(db)), Some(mem), Arc::new(table), body).unwrap();
 
         println!("{}", res);
     }

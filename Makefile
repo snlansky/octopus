@@ -11,6 +11,9 @@ help:
 	@echo "  - make clean             清理可执行文件和 Docker 镜像"
 	@echo
 
+install:
+	cargo install protobuf-codegen
+	cargo install grpcio-compiler
 start:
 	docker-compose up -d
 stop:

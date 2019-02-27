@@ -1,9 +1,11 @@
-pub mod db;
-pub mod table;
-pub mod value;
-pub mod lua;
-pub mod dao;
-pub mod error;
-pub mod support;
-pub mod mem;
-pub mod utils;
+mod db;
+mod table;
+mod value;
+mod lua;
+mod dao;
+mod error;
+mod support;
+mod mem;
+mod utils;
+
+pub use dal::support::Support;

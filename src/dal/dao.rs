@@ -291,7 +291,7 @@ mod tests {
     use dal::db::open_db;
     use std::sync::Arc;
     use std::sync::Mutex;
-    use config::config::DBRoute;
+    use config::DBRoute;
 
     fn new() -> Arc<Table> {
         let db = "block".to_string();

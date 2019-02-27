@@ -117,13 +117,13 @@ pub fn find(db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Arc<Table>, body: JsVal
 #[cfg(test)]
 mod tests {
     use dal::support::modify;
-    use config::config::MemRoute;
+    use config::MemRoute;
     use dal::table::Table;
     use dal::mem::Mem;
     use dal::db::DB;
     use dal::mem::open_client;
     use dal::table::Field;
-    use config::config::DBRoute;
+    use config::DBRoute;
     use dal::db::open_db;
     use std::sync::Arc;
     use std::sync::Mutex;

@@ -174,6 +174,8 @@ mod tests {
     use serde_json::Value;
     use dal::db::open_db;
     use dal::db::DB;
+    use config::MemRoute;
+    use config::DBRoute;
 
     fn get_table_conn() -> (Table, Mem, DB) {
         let r = MemRoute {

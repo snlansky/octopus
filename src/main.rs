@@ -17,12 +17,13 @@ extern crate threadpool;
 extern crate clap;
 
 use clap::App;
-use discovery::zk::ServiceRegister;
+use discovery::Register;
 use std::thread::sleep;
 use std::time::Duration;
-use config::config::Provider;
 use clap::Arg;
 use std::sync::Arc;
+use config::Config;
+use config::Provider;
 
 
 mod dal;
@@ -54,9 +55,10 @@ fn main() {
 
     info!("{} {}", cluster, path);
 
-    let mut sr = ServiceRegister::new(cluster);
+    let mut sr = Register::new(cluster);
 
-    let mut provider = Provider::new(path, Arc::new(sr));
+    let mut provider = Config::new(path, Arc::new(sr));
+
 
     loop {
         let s = provider.watch();

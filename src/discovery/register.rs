@@ -16,16 +16,16 @@ impl Watcher for LoggingWatcher {
     }
 }
 
-pub struct ServiceRegister {
+pub struct Register {
     pub zk: ZooKeeper,
 }
 
-impl ServiceRegister {
+impl Register {
     pub fn new(urls: &str) -> Self {
         let zk = ZooKeeper::connect(urls,
                                     Duration::from_secs(15),
                                     LoggingWatcher).unwrap();
-        ServiceRegister {
+        Register {
             zk,
         }
     }

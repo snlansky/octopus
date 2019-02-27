@@ -7,7 +7,6 @@ use redis::Connection;
 use redis::Commands;
 use std::sync::Arc;
 use std::sync::MutexGuard;
-use config::config::MemRoute;
 use serde_json::Map;
 use serde_json::Value as JsValue;
 use dal::db::DB;
@@ -16,6 +15,7 @@ use dal::dao::DML;
 use dal::value::ConvertTo;
 use dal::dao::DaoResult;
 use dal::table::Field;
+use config::MemRoute;
 
 pub struct Mem {
     record: HashMap<String, Vec<String>>,
@@ -166,14 +166,12 @@ pub fn open_client(route: MemRoute) -> Result<Connection, Error> {
 #[cfg(test)]
 mod tests {
     use dal::mem::open_client;
-    use config::config::MemRoute;
     use dal::mem::Mem;
     use std::sync::Arc;
     use std::sync::Mutex;
     use dal::table::Table;
     use dal::table::Field;
     use serde_json::Value;
-    use config::config::DBRoute;
     use dal::db::open_db;
     use dal::db::DB;
 

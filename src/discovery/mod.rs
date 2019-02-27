@@ -1,1 +1,3 @@
-pub mod zk;
+mod register;
+
+pub use discovery::register::Register;

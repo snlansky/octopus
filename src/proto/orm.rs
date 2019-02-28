@@ -353,51 +353,51 @@ impl ::protobuf::reflect::ProtobufValue for Uri {
 }
 
 #[derive(PartialEq,Clone,Default)]
-pub struct OneReq {
+pub struct Request {
     // message fields
-    pub descrip: ::protobuf::SingularPtrField<Uri>,
+    pub uri: ::protobuf::SingularPtrField<Uri>,
     pub body: ::std::vec::Vec<u8>,
     // special fields
     pub unknown_fields: ::protobuf::UnknownFields,
     pub cached_size: ::protobuf::CachedSize,
 }
 
-impl OneReq {
-    pub fn new() -> OneReq {
+impl Request {
+    pub fn new() -> Request {
         ::std::default::Default::default()
     }
 
-    // .ormroute.Uri descrip = 1;
+    // .protos.Uri uri = 1;
 
-    pub fn clear_descrip(&mut self) {
-        self.descrip.clear();
+    pub fn clear_uri(&mut self) {
+        self.uri.clear();
     }
 
-    pub fn has_descrip(&self) -> bool {
-        self.descrip.is_some()
+    pub fn has_uri(&self) -> bool {
+        self.uri.is_some()
     }
 
     // Param is passed by value, moved
-    pub fn set_descrip(&mut self, v: Uri) {
-        self.descrip = ::protobuf::SingularPtrField::some(v);
+    pub fn set_uri(&mut self, v: Uri) {
+        self.uri = ::protobuf::SingularPtrField::some(v);
     }
 
     // Mutable pointer to the field.
     // If field is not initialized, it is initialized with default value first.
-    pub fn mut_descrip(&mut self) -> &mut Uri {
-        if self.descrip.is_none() {
-            self.descrip.set_default();
+    pub fn mut_uri(&mut self) -> &mut Uri {
+        if self.uri.is_none() {
+            self.uri.set_default();
         }
-        self.descrip.as_mut().unwrap()
+        self.uri.as_mut().unwrap()
     }
 
     // Take field
-    pub fn take_descrip(&mut self) -> Uri {
-        self.descrip.take().unwrap_or_else(|| Uri::new())
+    pub fn take_uri(&mut self) -> Uri {
+        self.uri.take().unwrap_or_else(|| Uri::new())
     }
 
-    pub fn get_descrip(&self) -> &Uri {
-        self.descrip.as_ref().unwrap_or_else(|| Uri::default_instance())
+    pub fn get_uri(&self) -> &Uri {
+        self.uri.as_ref().unwrap_or_else(|| Uri::default_instance())
     }
 
     // bytes body = 2;
@@ -427,9 +427,9 @@ impl OneReq {
     }
 }
 
-impl ::protobuf::Message for OneReq {
+impl ::protobuf::Message for Request {
     fn is_initialized(&self) -> bool {
-        for v in &self.descrip {
+        for v in &self.uri {
             if !v.is_initialized() {
                 return false;
             }
@@ -442,7 +442,7 @@ impl ::protobuf::Message for OneReq {
             let (field_number, wire_type) = is.read_tag_unpack()?;
             match field_number {
                 1 => {
-                    ::protobuf::rt::read_singular_message_into(wire_type, is, &mut self.descrip)?;
+                    ::protobuf::rt::read_singular_message_into(wire_type, is, &mut self.uri)?;
                 },
                 2 => {
                     ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.body)?;
@@ -459,7 +459,7 @@ impl ::protobuf::Message for OneReq {
     #[allow(unused_variables)]
     fn compute_size(&self) -> u32 {
         let mut my_size = 0;
-        if let Some(ref v) = self.descrip.as_ref() {
+        if let Some(ref v) = self.uri.as_ref() {
             let len = v.compute_size();
             my_size += 1 + ::protobuf::rt::compute_raw_varint32_size(len) + len;
         }
@@ -472,7 +472,7 @@ impl ::protobuf::Message for OneReq {
     }
 
     fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream) -> ::protobuf::ProtobufResult<()> {
-        if let Some(ref v) = self.descrip.as_ref() {
+        if let Some(ref v) = self.uri.as_ref() {
             os.write_tag(1, ::protobuf::wire_format::WireTypeLengthDelimited)?;
             os.write_raw_varint32(v.get_cached_size())?;
             v.write_to_with_cached_sizes(os)?;
@@ -510,8 +510,8 @@ impl ::protobuf::Message for OneReq {
         Self::descriptor_static()
     }
 
-    fn new() -> OneReq {
-        OneReq::new()
+    fn new() -> Request {
+        Request::new()
     }
 
     fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
@@ -523,17 +523,17 @@ impl ::protobuf::Message for OneReq {
             descriptor.get(|| {
                 let mut fields = ::std::vec::Vec::new();
                 fields.push(::protobuf::reflect::accessor::make_singular_ptr_field_accessor::<_, ::protobuf::types::ProtobufTypeMessage<Uri>>(
-                    "descrip",
-                    |m: &OneReq| { &m.descrip },
-                    |m: &mut OneReq| { &mut m.descrip },
+                    "uri",
+                    |m: &Request| { &m.uri },
+                    |m: &mut Request| { &mut m.uri },
                 ));
                 fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
                     "body",
-                    |m: &OneReq| { &m.body },
-                    |m: &mut OneReq| { &mut m.body },
+                    |m: &Request| { &m.body },
+                    |m: &mut Request| { &mut m.body },
                 ));
-                ::protobuf::reflect::MessageDescriptor::new::<OneReq>(
-                    "OneReq",
+                ::protobuf::reflect::MessageDescriptor::new::<Request>(
+                    "Request",
                     fields,
                     file_descriptor_proto()
                 )
@@ -541,39 +541,39 @@ impl ::protobuf::Message for OneReq {
         }
     }
 
-    fn default_instance() -> &'static OneReq {
-        static mut instance: ::protobuf::lazy::Lazy<OneReq> = ::protobuf::lazy::Lazy {
+    fn default_instance() -> &'static Request {
+        static mut instance: ::protobuf::lazy::Lazy<Request> = ::protobuf::lazy::Lazy {
             lock: ::protobuf::lazy::ONCE_INIT,
-            ptr: 0 as *const OneReq,
+            ptr: 0 as *const Request,
         };
         unsafe {
-            instance.get(OneReq::new)
+            instance.get(Request::new)
         }
     }
 }
 
-impl ::protobuf::Clear for OneReq {
+impl ::protobuf::Clear for Request {
     fn clear(&mut self) {
-        self.clear_descrip();
+        self.clear_uri();
         self.clear_body();
         self.unknown_fields.clear();
     }
 }
 
-impl ::std::fmt::Debug for OneReq {
+impl ::std::fmt::Debug for Request {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         ::protobuf::text_format::fmt(self, f)
     }
 }
 
-impl ::protobuf::reflect::ProtobufValue for OneReq {
+impl ::protobuf::reflect::ProtobufValue for Request {
     fn as_ref(&self) -> ::protobuf::reflect::ProtobufValueRef {
         ::protobuf::reflect::ProtobufValueRef::Message(self)
     }
 }
 
 #[derive(PartialEq,Clone,Default)]
-pub struct Result {
+pub struct Response {
     // message fields
     pub content: ::std::vec::Vec<u8>,
     // special fields
@@ -581,8 +581,8 @@ pub struct Result {
     pub cached_size: ::protobuf::CachedSize,
 }
 
-impl Result {
-    pub fn new() -> Result {
+impl Response {
+    pub fn new() -> Response {
         ::std::default::Default::default()
     }
 
@@ -613,7 +613,7 @@ impl Result {
     }
 }
 
-impl ::protobuf::Message for Result {
+impl ::protobuf::Message for Response {
     fn is_initialized(&self) -> bool {
         true
     }
@@ -679,8 +679,8 @@ impl ::protobuf::Message for Result {
         Self::descriptor_static()
     }
 
-    fn new() -> Result {
-        Result::new()
+    fn new() -> Response {
+        Response::new()
     }
 
     fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
@@ -693,11 +693,11 @@ impl ::protobuf::Message for Result {
                 let mut fields = ::std::vec::Vec::new();
                 fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
                     "content",
-                    |m: &Result| { &m.content },
-                    |m: &mut Result| { &mut m.content },
+                    |m: &Response| { &m.content },
+                    |m: &mut Response| { &mut m.content },
                 ));
-                ::protobuf::reflect::MessageDescriptor::new::<Result>(
-                    "Result",
+                ::protobuf::reflect::MessageDescriptor::new::<Response>(
+                    "Response",
                     fields,
                     file_descriptor_proto()
                 )
@@ -705,50 +705,50 @@ impl ::protobuf::Message for Result {
         }
     }
 
-    fn default_instance() -> &'static Result {
-        static mut instance: ::protobuf::lazy::Lazy<Result> = ::protobuf::lazy::Lazy {
+    fn default_instance() -> &'static Response {
+        static mut instance: ::protobuf::lazy::Lazy<Response> = ::protobuf::lazy::Lazy {
             lock: ::protobuf::lazy::ONCE_INIT,
-            ptr: 0 as *const Result,
+            ptr: 0 as *const Response,
         };
         unsafe {
-            instance.get(Result::new)
+            instance.get(Response::new)
         }
     }
 }
 
-impl ::protobuf::Clear for Result {
+impl ::protobuf::Clear for Response {
     fn clear(&mut self) {
         self.clear_content();
         self.unknown_fields.clear();
     }
 }
 
-impl ::std::fmt::Debug for Result {
+impl ::std::fmt::Debug for Response {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         ::protobuf::text_format::fmt(self, f)
     }
 }
 
-impl ::protobuf::reflect::ProtobufValue for Result {
+impl ::protobuf::reflect::ProtobufValue for Response {
     fn as_ref(&self) -> ::protobuf::reflect::ProtobufValueRef {
         ::protobuf::reflect::ProtobufValueRef::Message(self)
     }
 }
 
 static file_descriptor_proto_data: &'static [u8] = b"\
-    \n\torm.proto\x12\x08ormroute\"g\n\x03Uri\x12\x14\n\x05trace\x18\x01\x20\
+    \n\torm.proto\x12\x06protos\"g\n\x03Uri\x12\x14\n\x05trace\x18\x01\x20\
     \x01(\tR\x05trace\x12\x0e\n\x02db\x18\x02\x20\x01(\tR\x02db\x12\x10\n\
     \x03orm\x18\x03\x20\x01(\tR\x03orm\x12\x0e\n\x02pk\x18\x04\x20\x01(\tR\
-    \x02pk\x12\x18\n\x07columns\x18\x05\x20\x01(\tR\x07columns\"E\n\x06OneRe\
-    q\x12'\n\x07descrip\x18\x01\x20\x01(\x0b2\r.ormroute.UriR\x07descrip\x12\
-    \x12\n\x04body\x18\x02\x20\x01(\x0cR\x04body\"\"\n\x06Result\x12\x18\n\
-    \x07content\x18\x03\x20\x01(\x0cR\x07content2\xf7\x01\n\x08OrmRoute\x12+\
-    \n\x03Add\x12\x10.ormroute.OneReq\x1a\x10.ormroute.Result\"\0\x12.\n\x06\
-    Remove\x12\x10.ormroute.OneReq\x1a\x10.ormroute.Result\"\0\x12.\n\x06Mod\
-    ify\x12\x10.ormroute.OneReq\x1a\x10.ormroute.Result\"\0\x12,\n\x04Find\
-    \x12\x10.ormroute.OneReq\x1a\x10.ormroute.Result\"\0\x120\n\x08Transact\
-    \x12\x10.ormroute.OneReq\x1a\x10.ormroute.Result\"\0B)\n\x16grpc.externa\
-    l.ormrouteB\rOrmRouteProtoP\x01b\x06proto3\
+    \x02pk\x12\x18\n\x07columns\x18\x05\x20\x01(\tR\x07columns\"<\n\x07Reque\
+    st\x12\x1d\n\x03uri\x18\x01\x20\x01(\x0b2\x0b.protos.UriR\x03uri\x12\x12\
+    \n\x04body\x18\x02\x20\x01(\x0cR\x04body\"$\n\x08Response\x12\x18\n\x07c\
+    ontent\x18\x03\x20\x01(\x0cR\x07content2\xed\x01\n\x03Orm\x12*\n\x03Add\
+    \x12\x0f.protos.Request\x1a\x10.protos.Response\"\0\x12-\n\x06Remove\x12\
+    \x0f.protos.Request\x1a\x10.protos.Response\"\0\x12-\n\x06Modify\x12\x0f\
+    .protos.Request\x1a\x10.protos.Response\"\0\x12+\n\x04Find\x12\x0f.proto\
+    s.Request\x1a\x10.protos.Response\"\0\x12/\n\x08Transact\x12\x0f.protos.\
+    Request\x1a\x10.protos.Response\"\0B\x1f\n\x11grpc.external.ormB\x08OrmP\
+    rotoP\x01b\x06proto3\
 ";
 
 static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy {

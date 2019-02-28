@@ -162,7 +162,7 @@ mod tests {
             pass: String::from("snlan"),
             host: String::from("www.snlan.top"),
             port: 3306,
-            db: String::from("block"),
+            name: String::from("block"),
         };
         let db = open_db(dbr).unwrap();
         (table, mem, db)

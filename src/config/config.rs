@@ -9,7 +9,7 @@ pub struct DBRoute {
     pub pass: String,
     pub host: String,
     pub port: i32,
-    pub db: String,
+    pub name: String,
 }
 
 
@@ -53,7 +53,7 @@ mod tests {
                 pass: "snlan".to_string(),
                 host: "www.snlan.top".to_string(),
                 port: 3306,
-                db: "block".to_string(),
+                name: "block".to_string(),
 
             },
             mem: Some(MemRoute {
@@ -87,7 +87,7 @@ mod tests {
                 "pass": "snlan",
                 "host": "www.snlan.top",
                 "port": 3306,
-                "db": "block"
+                "name": "block"
             },
             "mem": {
                 "host": "www.snlan.top",

@@ -311,10 +311,10 @@ mod tests {
         let dbr = DBRoute {
             engine: String::from("Mysql"),
             user: String::from("snlan"),
-            passwd: String::from("snlan"),
-            address: String::from("www.snlan.top"),
+            pass: String::from("snlan"),
+            host: String::from("www.snlan.top"),
             port: 3306,
-            name: String::from("block"),
+            db: String::from("block"),
         };
         open_db(dbr).unwrap()
     }

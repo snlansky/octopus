@@ -86,9 +86,9 @@ impl DB {
 
 pub fn open_db(cfg: DBRoute) -> Result<DB, Error> {
     let addr = format!("mysql://{}:{}@{}:{}/{}",
-                       cfg.user, cfg.passwd, cfg.address, cfg.port, cfg.name);
+                       cfg.user, cfg.pass, cfg.host, cfg.port, cfg.db);
     match Pool::new(addr) {
-        Ok(pool) => Ok(DB::new(cfg.name, pool)),
+        Ok(pool) => Ok(DB::new(cfg.db, pool)),
         Err(err) => Err(Error::from(err)),
     }
 }

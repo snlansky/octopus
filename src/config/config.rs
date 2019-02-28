@@ -6,10 +6,10 @@ use serde_derive::{Serialize, Deserialize};
 pub struct DBRoute {
     pub engine: String,
     pub user: String,
-    pub passwd: String,
-    pub address: String,
+    pub pass: String,
+    pub host: String,
     pub port: i32,
-    pub name: String,
+    pub db: String,
 }
 
 
@@ -18,8 +18,8 @@ pub struct MemRoute {
     pub host: String,
     pub port: i32,
     pub db: i32,
-    pub expire: i64,
     pub pass: String,
+    pub expire: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -42,6 +42,7 @@ mod tests {
     use config::config::DBRoute;
     use std::collections::HashMap;
     use config::config::Services;
+    use redis::pack_command;
 
     #[test]
     fn marhshal() {
@@ -49,10 +50,10 @@ mod tests {
             db: DBRoute {
                 engine: "mysql".to_string(),
                 user: "snlan".to_string(),
-                passwd: "snlan".to_string(),
-                address: "www.snlan.top".to_string(),
+                pass: "snlan".to_string(),
+                host: "www.snlan.top".to_string(),
                 port: 3306,
-                name: "block".to_string(),
+                db: "block".to_string(),
 
             },
             mem: Some(MemRoute {
@@ -83,17 +84,17 @@ mod tests {
             "db": {
                 "engine": "mysql",
                 "user": "snlan",
-                "passwd": "snlan",
-                "address": "www.snlan.top",
+                "pass": "snlan",
+                "host": "www.snlan.top",
                 "port": 3306,
-                "name": "block"
+                "db": "block"
             },
             "mem": {
                 "host": "www.snlan.top",
                 "port": 6379,
                 "db": 0,
-                "expire": 3600,
-                "pass": "snlan"
+                "pass": "snlan",
+                "expire": 3600
             }
         }
     }

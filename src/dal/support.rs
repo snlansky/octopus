@@ -20,11 +20,11 @@ pub struct Support<T: Provider> {
 
 impl<T: Provider> Support<T> {
     pub fn new(register: Arc<Register>, mut provider:T) -> Self {
-//
-//        loop {
-//            let s = provider.watch();
-//            println!("-->{:?}", s);
-//        }
+
+        loop {
+            let s = provider.watch();
+            println!("-->{:?}", s);
+        }
         Support { register, provider }
     }
 }
@@ -159,10 +159,10 @@ mod tests {
         let dbr = DBRoute {
             engine: String::from("Mysql"),
             user: String::from("snlan"),
-            passwd: String::from("snlan"),
-            address: String::from("www.snlan.top"),
+            pass: String::from("snlan"),
+            host: String::from("www.snlan.top"),
             port: 3306,
-            name: String::from("block"),
+            db: String::from("block"),
         };
         let db = open_db(dbr).unwrap();
         (table, mem, db)

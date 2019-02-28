@@ -34,6 +34,7 @@ mod dal;
 mod config;
 mod discovery;
 mod proto;
+mod server;
 
 fn main() {
     env_logger::init();
@@ -65,6 +66,8 @@ fn main() {
     let mut provider = Config::new(path, arc_register.clone());
 
     let support = Support::new(arc_register, provider);
+
+    let rpc = server::new(9090);
 
     sleep(Duration::from_secs(100));
 }

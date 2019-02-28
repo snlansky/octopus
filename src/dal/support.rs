@@ -21,10 +21,10 @@ pub struct Support<T: Provider> {
 impl<T: Provider> Support<T> {
     pub fn new(register: Arc<Register>, mut provider:T) -> Self {
 
-        loop {
+//        loop {
             let s = provider.watch();
             println!("-->{:?}", s);
-        }
+//        }
         Support { register, provider }
     }
 }

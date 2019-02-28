@@ -15,8 +15,9 @@ extern crate log;
 extern crate env_logger;
 extern crate threadpool;
 extern crate clap;
-//extern crate protobuf;
-//extern crate grpc;
+extern crate protobuf;
+extern crate grpc;
+extern crate crossbeam;
 
 use clap::App;
 use discovery::Register;

@@ -67,7 +67,7 @@ fn main() {
 
     let support = Support::new(arc_register, provider);
 
-    let rpc = server::new(9090);
+    let rpc = server::new(support);
 
     sleep(Duration::from_secs(100));
 }

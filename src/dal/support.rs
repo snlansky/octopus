@@ -12,20 +12,24 @@ use serde_json::Map;
 use dal::value::ConvertTo;
 use discovery::Register;
 use config::Provider;
+use config::Services;
 
 pub struct Support<T: Provider> {
     register: Arc<Register>,
     provider: T,
+    services: Services,
+
 }
 
 impl<T: Provider> Support<T> {
-    pub fn new(register: Arc<Register>, mut provider:T) -> Self {
+    pub fn new(register: Arc<Register>, mut provider: T) -> Self {
+        let services = provider.watch();
+        info!("\n{:?}", services);
+        Support { register, provider, services }
+    }
 
-//        loop {
-            let s = provider.watch();
-            println!("-->{:?}", s);
-//        }
-        Support { register, provider }
+    pub fn port(&self) -> i32 {
+        self.services.port
     }
 }
 

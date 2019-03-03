@@ -16,6 +16,7 @@ use dal::dao::DaoResult;
 use dal::table::Field;
 use config::MemRoute;
 use core::borrow::Borrow;
+use std::sync::MutexGuard;
 
 pub struct Mem {
     con: Connection
@@ -24,6 +25,11 @@ pub struct Mem {
 impl Mem {
     pub fn new(con: Connection) -> Self {
         Mem { con }
+    }
+
+    pub fn instance(route: &MemRoute) -> Result<Self, Error> {
+        let con = open_client(route)?;
+        Ok(Mem { con })
     }
 
     pub fn conn(&self) -> &Connection {
@@ -41,7 +47,7 @@ impl MemContext {
         MemContext { record: HashMap::new(), mem }
     }
 
-    fn get_conn(& self) -> Result<& Connection, Error>{
+    fn get_conn<'a>(&'a self) -> Result<&'a Connection, Error> {
         let mem = self.mem.lock()
             .map_err(|e| Error::CommonError { info: format!("get mem connection lock error: {:?}", e) })?;
         Ok(mem.conn())
@@ -53,7 +59,7 @@ impl MemContext {
         lua.del(mid.clone());
         lua.srem(tbl.get_table_set_key(), mid);
 
-        let conn = self.get_conn()?;
+        let conn  = self.get_conn()?;
         lua.invoke(&conn).map_err(|e| Error::from(e))
     }
 

@@ -77,11 +77,6 @@ impl DB {
         let conn = self.pool.get_conn()?;
         Ok(conn)
     }
-
-    pub fn close(&self) {
-        use std::mem::drop;
-        drop(self);
-    }
 }
 
 pub fn open_db(cfg: &DBRoute) -> Result<DB, Error> {
@@ -90,32 +85,5 @@ pub fn open_db(cfg: &DBRoute) -> Result<DB, Error> {
     match Pool::new(addr) {
         Ok(pool) => Ok(DB::new(cfg.name.clone(), pool)),
         Err(err) => Err(Error::from(err)),
-    }
-}
-
-pub struct DBManger {
-    dbs: HashMap<String, DB>,
-}
-
-impl DBManger {
-    pub fn new() -> DBManger {
-        DBManger { dbs: HashMap::new() }
-    }
-
-    pub fn add_db(&mut self, db: DB) {
-        let name = db.db_name.clone();
-        self.dbs.insert(name, db);
-    }
-
-    pub fn close_db(&mut self, name: String) {
-        let db = self.dbs.get(&name).unwrap();
-        db.close();
-    }
-
-    pub fn get_db(&self, db: String) -> Option<Box<&DB>> {
-        match self.dbs.get(&db) {
-            Some(db) => Some(Box::new(db)),
-            None => None,
-        }
     }
 }

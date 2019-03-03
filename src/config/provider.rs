@@ -40,7 +40,7 @@ impl Provider for Config {
         }
 
         let tx = self.tx.clone();
-        let (data, _) = sr.zk.get_data_w(self.root.as_str(), move |f| {
+        let (data, _) = sr.zk.get_data_w(self.root.as_str(), move |_| {
             tx.lock().unwrap().send(()).unwrap();
         }).unwrap();
 

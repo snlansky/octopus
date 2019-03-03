@@ -13,23 +13,18 @@ use discovery::Register;
 use config::Provider;
 use config::Services;
 use std::collections::HashMap;
-use dal::db::open_db;
-use config::DBRoute;
-use config::MemRoute;
-use dal::mem::open_client;
 use dal::Error;
 use dal::Error::CommonError;
-use config::DataRoute;
 use dal::mem::Mem;
 use dal::interface::Close;
-use dal::utils::ArcMutex;
+use dal::Route;
+
 
 pub struct Support<T: Provider> {
     register: Arc<Register>,
     provider: T,
-    services: Services,
-    routes: HashMap<String, (Arc<Mutex<DB>>, Option<Arc<Mutex<Mem>>>)>,
-
+    port:i32,
+    routes: HashMap<String, Route>,
 }
 
 impl<T: Provider> Support<T> {
@@ -39,7 +34,7 @@ impl<T: Provider> Support<T> {
         let mut support = Support {
             register,
             provider,
-            services,
+            port:services.port,
             routes: HashMap::new(),
         };
         support.start(pool);
@@ -47,13 +42,13 @@ impl<T: Provider> Support<T> {
     }
 
     pub fn port(&self) -> i32 {
-        self.services.port
+        self.port
     }
 
-    pub fn data_route(&self, db_alias: &String) -> Option<(&Arc<Mutex<DB>>, &Option<Arc<Mutex<Mem>>>)> {
+    pub fn data_route(&self, db_alias: &String) -> Option<&Route> {
         self.routes.get(db_alias)
-            .map(|(db, mem)| {
-                (db, mem)
+            .map(|f| {
+                f
             })
     }
 
@@ -65,95 +60,97 @@ impl<T: Provider> Support<T> {
         }
     }
 
-    fn update(&mut self, services: &Services) {
-        if self.services.data == services.data {
-            return;
-        }
+    fn update(&mut self, services:&Services) {}
 
-        // 先更新没有的配置
-        for (alias, route) in &services.data {
-            match self.services.data.get_mut(alias) {
-                Some(old) => {
-                    if let Some(r) = self.routes.get_mut(alias) {
-                        if old.db != route.db {
-                            Self::update_db_client(&mut r.0, &route.db)
-                                .map(|_| old.db = route.db)
-                                .map_err(|err| error!("update db client {:?} failed, reason: {:?}", &route.db, err));
-                        }
-                        if old.mem != route.mem {
-                            Self::update_mem_client(&mut r.1, &route.mem)
-                                .map(|_| old.mem = route.mem)
-                                .map_err(|err| error!("update mem client {:?} failed, reason: {:?}", &route.mem, err));
-                        }
-                    } else {
-                        unreachable!()
-                    }
-                }
-                None => {
-                    match Self::get_route(&route) {
-                        Ok(r) => {
-                            self.routes.insert(alias.clone(), r);
-                            self.services.data.insert(alias.clone(), route.clone());
-                        }
-                        Err(err) => {
-                            error!("update client {:?} failed, reason: {:?}", &route, err);
-                        }
-                    }
-                }
-            }
-        }
-
-        // 删除old配置
-        let mut del = Vec::new();
-        for (alias, route) in &self.services.data {
-            if !services.data.contains_key(alias) {
-                del.push(alias)
-            }
-        }
-        for alias in del {
-            self.services.data.remove(alias);
-            if let Some((db, mem)) = self.routes.remove(alias) {
-                db.lock()
-                    .map(|f| f.close())
-                    .map_err(|e| error!("get db<{}> lock failed when close db, reason: {:?}", alias, e));
-                if let Some(m) = mem {
-                    m.close();
-                }
-            }
-        }
-    }
-
-    fn get_route(route: &DataRoute) -> Result<(Arc<Mutex<DB>>, Option<Arc<Mutex<Mem>>>), Error> {
-        let db = ArcMutex(open_db(&route.db)?);
-        match &route.mem {
-            Some(mr) => {
-                let mem = ArcMutex(Mem::new(open_client(mr)?));
-                Ok((db, Some(mem)))
-            }
-            None => Ok((db,None)),
-        }
-    }
-
-    fn update_db_client(r: &mut Arc<Mutex<DB>>, route: &DBRoute) -> Result<(), Error> {
-        let db = open_db(route)?;
-        let locked = r.lock()
-            .map_err(|e| Error::CommonError { info: format!("get db lock error: {:?}", e) })?;
-        locked.close();
-        *r = ArcMutex(db);
-        Ok(())
-    }
-
-    fn update_mem_client(r: &mut Option<Arc<Mutex<Mem>>>, route: &Option<MemRoute>) -> Result<(), Error> {
-        if let Some(mr) = route {
-            let conn = open_client(mr)?;
-            r.close();
-            *r = Some(ArcMutex(Mem::new(conn)));
-        } else {
-            r.close();
-            *r = None;
-        }
-        Ok(())
-    }
+//    fn update(&mut self, services: &Services) {
+//        if self.services.data == services.data {
+//            return;
+//        }
+//
+//        // 先更新没有的配置
+//        for (alias, route) in &services.data {
+//            match self.services.data.get_mut(alias) {
+//                Some(old) => {
+//                    if let Some(r) = self.routes.get_mut(alias) {
+//                        if old.db != route.db {
+//                            Self::update_db_client(&mut r.0, &route.db)
+//                                .map(|_| old.db = route.db)
+//                                .map_err(|err| error!("update db client {:?} failed, reason: {:?}", &route.db, err));
+//                        }
+//                        if old.mem != route.mem {
+//                            Self::update_mem_client(&mut r.1, &route.mem)
+//                                .map(|_| old.mem = route.mem)
+//                                .map_err(|err| error!("update mem client {:?} failed, reason: {:?}", &route.mem, err));
+//                        }
+//                    } else {
+//                        unreachable!()
+//                    }
+//                }
+//                None => {
+//                    match Self::get_route(&route) {
+//                        Ok(r) => {
+//                            self.routes.insert(alias.clone(), r);
+//                            self.services.data.insert(alias.clone(), route.clone());
+//                        }
+//                        Err(err) => {
+//                            error!("update client {:?} failed, reason: {:?}", &route, err);
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//
+//        // 删除old配置
+//        let mut del = Vec::new();
+//        for (alias, route) in &self.services.data {
+//            if !services.data.contains_key(alias) {
+//                del.push(alias)
+//            }
+//        }
+//        for alias in del {
+//            self.services.data.remove(alias);
+//            if let Some((db, mem)) = self.routes.remove(alias) {
+//                db.lock()
+//                    .map(|f| f.close())
+//                    .map_err(|e| error!("get db<{}> lock failed when close db, reason: {:?}", alias, e));
+//                if let Some(m) = mem {
+//                    m.close();
+//                }
+//            }
+//        }
+//    }
+//
+//    fn get_route(route: &DataRoute) -> Result<(Arc<Mutex<DB>>, Option<Arc<Mutex<Mem>>>), Error> {
+//        let db = ArcMutex(open_db(&route.db)?);
+//        match &route.mem {
+//            Some(mr) => {
+//                let mem = ArcMutex(Mem::new(open_client(mr)?));
+//                Ok((db, Some(mem)))
+//            }
+//            None => Ok((db, None)),
+//        }
+//    }
+//
+//    fn update_db_client(r: &mut Arc<Mutex<DB>>, route: &DBRoute) -> Result<(), Error> {
+//        let db = open_db(route)?;
+//        let locked = r.lock()
+//            .map_err(|e| Error::CommonError { info: format!("get db lock error: {:?}", e) })?;
+//        locked.close();
+//        *r = ArcMutex(db);
+//        Ok(())
+//    }
+//
+//    fn update_mem_client(r: &mut Option<Arc<Mutex<Mem>>>, route: &Option<MemRoute>) -> Result<(), Error> {
+//        if let Some(mr) = route {
+//            let conn = open_client(mr)?;
+//            r.close();
+//            *r = Some(ArcMutex(Mem::new(conn)));
+//        } else {
+//            r.close();
+//            *r = None;
+//        }
+//        Ok(())
+//    }
 }
 
 
@@ -200,7 +197,7 @@ impl Close for Option<Arc<Mutex<Mem>>> {
 impl Close for Arc<Mutex<Mem>> {
     fn close(&self) {
         self.lock()
-            .map(|f|{}) // TODO 通过作用域进行释放
+            .map(|_f| {}) // TODO 通过作用域进行释放
             .map_err(|e| error!("get mem lock failed, reason: {:?}", e));
     }
 }

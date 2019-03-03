@@ -316,7 +316,7 @@ mod tests {
             port: 3306,
             name: String::from("block"),
         };
-        open_db(dbr).unwrap()
+        open_db(&dbr).unwrap()
     }
 
     #[test]

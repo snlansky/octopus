@@ -6,7 +6,6 @@ use std::sync::Mutex;
 use redis::Connection;
 use redis::Commands;
 use std::sync::Arc;
-use std::sync::MutexGuard;
 use serde_json::Map;
 use serde_json::Value as JsValue;
 use dal::db::DB;
@@ -16,22 +15,38 @@ use dal::value::ConvertTo;
 use dal::dao::DaoResult;
 use dal::table::Field;
 use config::MemRoute;
+use core::borrow::Borrow;
 
 pub struct Mem {
-    record: HashMap<String, Vec<String>>,
-    conn: Arc<Mutex<Connection>>,
+    con: Connection
 }
 
 impl Mem {
-    pub fn new(conn: Arc<Mutex<Connection>>) -> Mem {
-        Mem { record: HashMap::new(), conn }
+    pub fn new(con: Connection) -> Self {
+        Mem { con }
     }
 
-    fn get_conn(&self) -> Result<MutexGuard<Connection>, Error> {
-        let conn = self.conn.lock()
-            .map_err(|e| Error::CommonError { info: format!("get mem connection lock error: {:?}", e) })?;
-        Ok(conn)
+    pub fn conn(&self) -> &Connection {
+        self.con.borrow()
     }
+}
+
+pub struct MemContext {
+    record: HashMap<String, Vec<String>>,
+    mem: Arc<Mutex<Mem>>,
+}
+
+impl MemContext {
+    pub fn new(mem: Arc<Mutex<Mem>>) -> Self {
+        MemContext { record: HashMap::new(), mem }
+    }
+
+    fn get_conn(& self) -> Result<& Connection, Error>{
+        let mem = self.mem.lock()
+            .map_err(|e| Error::CommonError { info: format!("get mem connection lock error: {:?}", e) })?;
+        Ok(mem.conn())
+    }
+
 
     pub fn del(&mut self, tbl: Arc<Table>, mid: Vec<String>) -> Result<isize, Error> {
         let mut lua = LuaScript::new();
@@ -58,7 +73,7 @@ impl Mem {
                 let vs: HashMap<String, String> = values.convert();
                 lua.hmset(mid.clone(), vs);
                 lua.expire(mid.clone(), 60 * 60);
-                let _:isize = lua.invoke(&conn).map_err(|e| Error::from(e))?;
+                let _: isize = lua.invoke(&conn).map_err(|e| Error::from(e))?;
                 return Ok(vec![mid]);
             }
         }
@@ -157,7 +172,7 @@ impl Mem {
     }
 }
 
-pub fn open_client(route: MemRoute) -> Result<Connection, Error> {
+pub fn open_client(route: &MemRoute) -> Result<Connection, Error> {
     let url = format!("redis://:{}@{}:{}/", route.pass, route.host, route.port);
     let client = redis::Client::open(url.as_str())?;
     client.get_connection().map_err(|e| Error::from(e))
@@ -166,7 +181,7 @@ pub fn open_client(route: MemRoute) -> Result<Connection, Error> {
 #[cfg(test)]
 mod tests {
     use dal::mem::open_client;
-    use dal::mem::Mem;
+    use dal::mem::MemContext;
     use std::sync::Arc;
     use std::sync::Mutex;
     use dal::table::Table;
@@ -176,8 +191,9 @@ mod tests {
     use dal::db::DB;
     use config::MemRoute;
     use config::DBRoute;
+    use dal::mem::Mem;
 
-    fn get_table_conn() -> (Table, Mem, DB) {
+    fn get_table_conn() -> (Table, MemContext, DB) {
         let r = MemRoute {
             host: "www.snlan.top".to_string(),
             port: 6379,
@@ -185,8 +201,9 @@ mod tests {
             expire: 60 * 60,
             db: 0,
         };
-        let conn = open_client(r).unwrap();
-        let mem = Mem::new(Arc::new(Mutex::new(conn)));
+        let conn = open_client(&r).unwrap();
+
+        let mem = MemContext::new(Arc::new(Mutex::new(Mem::new(conn))));
         let db = "block".to_string();
         let model = "TbTestModel".to_string();
         let pks = vec!["RoleGuid".to_string(), "TwoKey".to_string()];
@@ -207,7 +224,7 @@ mod tests {
             port: 3306,
             name: String::from("block"),
         };
-        let db = open_db(dbr).unwrap();
+        let db = open_db(&dbr).unwrap();
         (table, mem, db)
     }
 
@@ -221,7 +238,7 @@ mod tests {
 
     #[test]
     fn test_mem_load_update() {
-        let (table, mut mem,  db) = get_table_conn();
+        let (table, mut mem, db) = get_table_conn();
         let data = r##"{"conditions":{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":"3","operator":"AND"},"values":{"CreateDate":"2017-00-00","CreateDatetime":"2017-00-00 09:16:55","CreateTime":"10:00:00","CreateTimestamp":"1"}}"##;
         let body: Value = serde_json::from_str(data).unwrap();
 
@@ -238,7 +255,7 @@ mod tests {
         let cond = conditions.clone();
         let cond = cond.as_object().unwrap();
         let table = Arc::new(table);
-        let (pv_map, _) = Mem::match_pk(table.clone(), cond);
+        let (pv_map, _) = MemContext::match_pk(table.clone(), cond);
         let fields = vec![Field { name: "RoleGuid".to_string(), tpe: "varchar".to_string() }, Field { name: "TwoKey".to_string(), tpe: "int".to_string() }];
         let res = mem.load_find(table, pv_map, conditions, Arc::new(Mutex::new(db)), &fields).unwrap();
         println!("{}", res);

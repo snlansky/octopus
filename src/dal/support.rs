@@ -3,33 +3,156 @@ use std::sync::{Arc, Mutex};
 use serde_json::Value as JsValue;
 use dal::db::DB;
 use dal::table::Table;
-use dal::error::Error;
 use dal::dao::DML;
 use dal::dao::DaoResult;
-use dal::mem::Mem;
+use dal::mem::MemContext;
 use threadpool::ThreadPool;
 use serde_json::Map;
 use dal::value::ConvertTo;
 use discovery::Register;
 use config::Provider;
 use config::Services;
+use std::collections::HashMap;
+use dal::db::open_db;
+use config::DBRoute;
+use config::MemRoute;
+use dal::mem::open_client;
+use dal::Error;
+use dal::Error::CommonError;
+use config::DataRoute;
+use dal::mem::Mem;
+use dal::interface::Close;
+use dal::utils::ArcMutex;
 
 pub struct Support<T: Provider> {
     register: Arc<Register>,
     provider: T,
     services: Services,
+    routes: HashMap<String, (Arc<Mutex<DB>>, Option<Arc<Mutex<Mem>>>)>,
 
 }
 
 impl<T: Provider> Support<T> {
-    pub fn new(register: Arc<Register>, mut provider: T) -> Self {
+    pub fn new(register: Arc<Register>, mut provider: T, pool: &ThreadPool) -> Self {
         let services = provider.watch();
         info!("\n{:?}", services);
-        Support { register, provider, services }
+        let mut support = Support {
+            register,
+            provider,
+            services,
+            routes: HashMap::new(),
+        };
+        support.start(pool);
+        support
     }
 
     pub fn port(&self) -> i32 {
         self.services.port
+    }
+
+    pub fn data_route(&self, db_alias: &String) -> Option<(&Arc<Mutex<DB>>, &Option<Arc<Mutex<Mem>>>)> {
+        self.routes.get(db_alias)
+            .map(|(db, mem)| {
+                (db, mem)
+            })
+    }
+
+    pub fn start(&mut self, pool: &ThreadPool) {
+        loop {
+            let services = self.provider.watch();
+            info!("\n{:?}", services);
+            self.update(&services);
+        }
+    }
+
+    fn update(&mut self, services: &Services) {
+        if self.services.data == services.data {
+            return;
+        }
+
+        // 先更新没有的配置
+        for (alias, route) in &services.data {
+            match self.services.data.get_mut(alias) {
+                Some(old) => {
+                    if let Some(r) = self.routes.get_mut(alias) {
+                        if old.db != route.db {
+                            Self::update_db_client(&mut r.0, &route.db)
+                                .map(|_| old.db = route.db)
+                                .map_err(|err| error!("update db client {:?} failed, reason: {:?}", &route.db, err));
+                        }
+                        if old.mem != route.mem {
+                            Self::update_mem_client(&mut r.1, &route.mem)
+                                .map(|_| old.mem = route.mem)
+                                .map_err(|err| error!("update mem client {:?} failed, reason: {:?}", &route.mem, err));
+                        }
+                    } else {
+                        unreachable!()
+                    }
+                }
+                None => {
+                    match Self::get_route(&route) {
+                        Ok(r) => {
+                            self.routes.insert(alias.clone(), r);
+                            self.services.data.insert(alias.clone(), route.clone());
+                        }
+                        Err(err) => {
+                            error!("update client {:?} failed, reason: {:?}", &route, err);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 删除old配置
+        let mut del = Vec::new();
+        for (alias, route) in &self.services.data {
+            if !services.data.contains_key(alias) {
+                del.push(alias)
+            }
+        }
+        for alias in del {
+            self.services.data.remove(alias);
+            if let Some((db, mem)) = self.routes.remove(alias) {
+                db.lock()
+                    .map(|f| f.close())
+                    .map_err(|e| error!("get db<{}> lock failed when close db, reason: {:?}", alias, e));
+                if let Some(m) = mem {
+                    m.close();
+                }
+            }
+        }
+    }
+
+    fn get_route(route: &DataRoute) -> Result<(Arc<Mutex<DB>>, Option<Arc<Mutex<Mem>>>), Error> {
+        let db = ArcMutex(open_db(&route.db)?);
+        match &route.mem {
+            Some(mr) => {
+                let mem = ArcMutex(Mem::new(open_client(mr)?));
+                Ok((db, Some(mem)))
+            }
+            None => Ok((db,None)),
+        }
+    }
+
+    fn update_db_client(r: &mut Arc<Mutex<DB>>, route: &DBRoute) -> Result<(), Error> {
+        let db = open_db(route)?;
+        let locked = r.lock()
+            .map_err(|e| Error::CommonError { info: format!("get db lock error: {:?}", e) })?;
+        locked.close();
+        *r = ArcMutex(db);
+        Ok(())
+    }
+
+    fn update_mem_client(r: &mut Option<Arc<Mutex<Mem>>>, route: &Option<MemRoute>) -> Result<(), Error> {
+        if let Some(mr) = route {
+            let conn = open_client(mr)?;
+            r.close();
+            *r = Some(ArcMutex(Mem::new(conn)));
+        } else {
+            r.close();
+            *r = None;
+        }
+        Ok(())
     }
 }
 
@@ -42,7 +165,7 @@ pub fn add(db: Arc<Mutex<DB>>, tbl: Arc<Table>, body: JsValue) -> Result<JsValue
     }
 }
 
-pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
+pub fn remove(db: Arc<Mutex<DB>>, mem: Option<MemContext>, tbl: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
     if let Some(mut mem) = mem {
         let mut dao = Dao::new(tbl.clone(), DML::Select, body.clone());
         let rows = match dao.exec_sql(db.clone())? {
@@ -66,7 +189,23 @@ pub fn remove(db: Arc<Mutex<DB>>, mem: Option<Mem>, tbl: Arc<Table>, body: JsVal
     }
 }
 
-pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
+impl Close for Option<Arc<Mutex<Mem>>> {
+    fn close(&self) {
+        if let Some(m) = self {
+            m.close();
+        }
+    }
+}
+
+impl Close for Arc<Mutex<Mem>> {
+    fn close(&self) {
+        self.lock()
+            .map(|f|{}) // TODO 通过作用域进行释放
+            .map_err(|e| error!("get mem lock failed, reason: {:?}", e));
+    }
+}
+
+pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<MemContext>, table: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
     let db1 = db.clone();
     let body1 = body.clone();
     let up_dao = move |tbl: Arc<Table>| -> Result<JsValue, Error>{
@@ -93,10 +232,10 @@ pub fn modify(pool: &ThreadPool, db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Ar
     }
 }
 
-pub fn find(db: Arc<Mutex<DB>>, mem: Option<Mem>, table: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
+pub fn find(db: Arc<Mutex<DB>>, mem: Option<MemContext>, table: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
     let cond = body.as_object()
-        .ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
-    let (pv_map, match_pk) = Mem::match_pk(table.clone(), &cond);
+        .ok_or(CommonError { info: "invalid json format".to_string() })?.clone();
+    let (pv_map, match_pk) = MemContext::match_pk(table.clone(), &cond);
 
     if mem.is_some() && match_pk {
         let mut mem = mem.unwrap();
@@ -123,7 +262,7 @@ mod tests {
     use dal::support::modify;
     use config::MemRoute;
     use dal::table::Table;
-    use dal::mem::Mem;
+    use dal::mem::MemContext;
     use dal::db::DB;
     use dal::mem::open_client;
     use dal::table::Field;
@@ -136,9 +275,10 @@ mod tests {
     use threadpool::ThreadPool;
     use std::{thread, time};
     use dal::support::find;
+    use dal::mem::Mem;
 
 
-    fn get_table_conn() -> (Table, Mem, DB) {
+    fn get_table_conn() -> (Table, MemContext, DB) {
         let r = MemRoute {
             host: "www.snlan.top".to_string(),
             port: 6379,
@@ -146,8 +286,8 @@ mod tests {
             expire: 60 * 60,
             db: 0,
         };
-        let conn = open_client(r).unwrap();
-        let mem = Mem::new(Arc::new(Mutex::new(conn)));
+        let conn = open_client(&r).unwrap();
+        let mem = MemContext::new(Arc::new(Mutex::new(Mem::new(conn))));
         let db = "block".to_string();
         let model = "TbTestModel".to_string();
         let pks = vec!["RoleGuid".to_string(), "TwoKey".to_string()];
@@ -168,7 +308,7 @@ mod tests {
             port: 3306,
             name: String::from("block"),
         };
-        let db = open_db(dbr).unwrap();
+        let db = open_db(&dbr).unwrap();
         (table, mem, db)
     }
 
@@ -177,7 +317,7 @@ mod tests {
         let (table, mem, db) = get_table_conn();
         let data = r##"{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":3,"operator":"AND"}"##;
         let body: Value = serde_json::from_str(data).unwrap();
-        let mem: Option<Mem> = Some(mem);
+        let mem: Option<MemContext> = Some(mem);
         let i = remove(Arc::new(Mutex::new(db)), mem, Arc::new(table), body).unwrap();
         assert_eq!(json!(1), i);
     }

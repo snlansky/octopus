@@ -1,9 +1,7 @@
 use discovery::Register;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
-use serde_json::Error;
 use std::sync::mpsc::Sender;
-use std::thread;
 use std::sync::Mutex;
 use std::sync::Arc;
 use config::Services;

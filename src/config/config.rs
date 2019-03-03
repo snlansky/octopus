@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use serde_derive::{Serialize, Deserialize};
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct DBRoute {
     pub engine: String,
     pub user: String,
@@ -13,7 +13,7 @@ pub struct DBRoute {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize,PartialEq, Clone)]
 pub struct MemRoute {
     pub host: String,
     pub port: i32,
@@ -22,17 +22,17 @@ pub struct MemRoute {
     pub expire: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct DataRoute {
     pub db: DBRoute,
     pub mem: Option<MemRoute>,
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Services {
     pub port: i32,
-    data: HashMap<String, DataRoute>,
+    pub data: HashMap<String, DataRoute>,
 }
 
 #[cfg(test)]

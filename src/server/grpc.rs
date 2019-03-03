@@ -1,11 +1,9 @@
-use proto::orm_grpc::OrmClient;
 use proto::orm_grpc::OrmServer;
 use proto::orm_grpc::Orm;
 use grpc::RequestOptions;
 use proto::orm::Request;
 use grpc::SingleResponse;
 use proto::orm::Response;
-use std::thread;
 use dal::Support;
 use config::Provider;
 
@@ -18,9 +16,6 @@ pub fn new<T:Provider>(support: Support<T>) {
 
     let _server = server.build().unwrap();
     info!("grpc server started on port {}", port);
-    loop {
-        thread::park();
-    }
 }
 
 struct Handler {}

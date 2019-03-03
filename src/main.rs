@@ -21,13 +21,11 @@ extern crate crossbeam;
 
 use clap::App;
 use discovery::Register;
-use std::thread::sleep;
-use std::time::Duration;
 use clap::Arg;
 use std::sync::Arc;
 use config::Config;
-use config::Provider;
 use dal::Support;
+use std::thread;
 
 
 mod dal;
@@ -61,13 +59,16 @@ fn main() {
 
     info!("{} {}", cluster, path);
 
-    let mut arc_register = Arc::new(Register::new(cluster));
+    let  arc_register = Arc::new(Register::new(cluster));
 
-    let mut provider = Config::new(path, arc_register.clone());
+    let provider = Config::new(path, arc_register.clone());
 
-    let support = Support::new(arc_register, provider);
+    let pool = threadpool::ThreadPool::new(4);
+    let support = Support::new(arc_register, provider, &pool);
 
     let rpc = server::new(support);
 
-    sleep(Duration::from_secs(100));
+    loop {
+        thread::park();
+    }
 }

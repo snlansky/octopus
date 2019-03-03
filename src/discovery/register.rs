@@ -58,7 +58,7 @@ impl Register {
         if !path.contains("/") {
             ("/".to_string(), path)
         } else {
-            let mut v: Vec<_> = path.split("/").collect();
+            let v: Vec<_> = path.split("/").collect();
             let mut v = v.into_iter()
                 .filter(|&f| !f.eq(""))
                 .collect::<Vec<_>>();

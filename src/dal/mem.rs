@@ -33,7 +33,7 @@ impl Mem {
     }
 
     pub fn conn(&self) -> &Connection {
-        self.con.borrow()
+        &self.con
     }
 }
 
@@ -47,10 +47,10 @@ impl MemContext {
         MemContext { record: HashMap::new(), mem }
     }
 
-    fn get_conn<'a>(&'a self) -> Result<&'a Connection, Error> {
+    fn get_mem(&self) -> Result<MutexGuard<Mem>, Error> {
         let mem = self.mem.lock()
             .map_err(|e| Error::CommonError { info: format!("get mem connection lock error: {:?}", e) })?;
-        Ok(mem.conn())
+        Ok(mem)
     }
 
 
@@ -59,8 +59,8 @@ impl MemContext {
         lua.del(mid.clone());
         lua.srem(tbl.get_table_set_key(), mid);
 
-        let conn  = self.get_conn()?;
-        lua.invoke(&conn).map_err(|e| Error::from(e))
+        let mem  = self.get_mem()?;
+        lua.invoke(mem.conn()).map_err(|e| Error::from(e))
     }
 
     pub fn load_update(&mut self, tbl: Arc<Table>, body: JsValue, db: Arc<Mutex<DB>>) -> Result<Vec<String>, Error> {
@@ -71,15 +71,15 @@ impl MemContext {
         let values = body.get("values").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
         let values = values.as_object().ok_or(Error::CommonError { info: "invalid json format at token values".to_string() })?;
 
-        let conn = self.get_conn()?;
+        let mem = self.get_mem()?;
         if pk_match {
             let mid = tbl.get_model_key(&pv_map);
-            if conn.exists(mid.clone())? {
+            if mem.conn().exists(mid.clone())? {
                 let mut lua = LuaScript::new();
                 let vs: HashMap<String, String> = values.convert();
                 lua.hmset(mid.clone(), vs);
                 lua.expire(mid.clone(), 60 * 60);
-                let _: isize = lua.invoke(&conn).map_err(|e| Error::from(e))?;
+                let _: isize = lua.invoke(mem.conn()).map_err(|e| Error::from(e))?;
                 return Ok(vec![mid]);
             }
         }
@@ -103,14 +103,14 @@ impl MemContext {
             lua.expire(mid.clone(), 60 * 60);
             mids.push(mid);
         }
-        let _: isize = lua.invoke(&conn).map_err(|e| Error::from(e))?;
+        let _: isize = lua.invoke(mem.conn()).map_err(|e| Error::from(e))?;
         Ok(mids)
     }
 
     pub fn load_find(&mut self, tbl: Arc<Table>, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>, fields: &Vec<Field>) -> Result<JsValue, Error> {
         let mid = tbl.get_model_key(&pv);
-        let conn = self.get_conn()?;
-        let exist: bool = conn.exists(mid.clone())?;
+        let mem = self.get_mem()?;
+        let exist: bool = mem.conn().exists(mid.clone())?;
         if !exist {
             let mut dao = Dao::new(tbl.clone(), DML::Select, cond);
             let rows = match dao.exec_sql(db.clone())? {
@@ -129,17 +129,17 @@ impl MemContext {
                 .collect::<HashMap<_, _>>();
             lua.hmset(mid.clone(), row0);
             lua.expire(mid.clone(), 60 * 60);
-            lua.invoke(&conn);
+            lua.invoke(mem.conn());
         }
 
 
-        let _: () = self.try_register_schema(tbl.clone(), &conn)?;
+        let _: () = self.try_register_schema(tbl.clone(), mem.conn())?;
 
         let row;
         if fields.len() > 0 {
-            row = self.get_value(mid, fields, &conn)?;
+            row = self.get_value(mid, fields, mem.conn())?;
         } else {
-            row = self.get_value(mid, tbl.get_fields(), &conn)?;
+            row = self.get_value(mid, tbl.get_fields(), mem.conn())?;
         }
         Ok(JsValue::Array(vec![row]))
     }

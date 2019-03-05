@@ -15,7 +15,6 @@ use dal::value::ConvertTo;
 use dal::dao::DaoResult;
 use dal::table::Field;
 use config::MemRoute;
-use core::borrow::Borrow;
 use std::sync::MutexGuard;
 
 pub struct Mem {
@@ -129,7 +128,7 @@ impl MemContext {
                 .collect::<HashMap<_, _>>();
             lua.hmset(mid.clone(), row0);
             lua.expire(mid.clone(), 60 * 60);
-            lua.invoke(mem.conn());
+            lua.invoke(mem.conn())?;
         }
 
 

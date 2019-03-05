@@ -37,7 +37,7 @@ impl Route {
         &self.mem
     }
 
-    pub fn update(&mut self, route: DataRoute) -> Result<(), Error> {
+    pub fn update(&mut self, route: &DataRoute) -> Result<(), Error> {
         if route.db != self.route.db {
             let db = open_db(&route.db)?;
             self.db = db;
@@ -46,7 +46,7 @@ impl Route {
         if route.mem != self.route.mem {
             let mem = Self::init_mem(&route.mem)?;
             self.mem = mem;
-            self.route.mem = route.mem
+            self.route.mem = route.mem.clone()
         }
         Ok(())
     }

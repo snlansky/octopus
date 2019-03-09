@@ -6,12 +6,8 @@ use std::sync::Mutex;
 use std::sync::Arc;
 use config::Services;
 
-pub trait Provider {
-    fn watch(&mut self) -> Services;
-}
 
-
-pub struct Config {
+pub struct Provider {
     root: String,
     sr: Arc<Register>,
     start: bool,
@@ -19,10 +15,10 @@ pub struct Config {
     rx: Receiver<()>,
 }
 
-impl Config {
+impl Provider {
     pub fn new(path: &str, sr: Arc<Register>) -> Self {
         let (tx, rx) = channel();
-        Config {
+        Provider {
             root: path.to_string(),
             sr,
             start: false,
@@ -30,10 +26,8 @@ impl Config {
             rx,
         }
     }
-}
 
-impl Provider for Config {
-    fn watch(&mut self) -> Services {
+    pub fn watch(&mut self) -> Services {
         let sr = self.sr.clone();
         if self.start {
             self.rx.recv().unwrap();

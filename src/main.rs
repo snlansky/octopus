@@ -23,9 +23,9 @@ use clap::App;
 use discovery::Register;
 use clap::Arg;
 use std::sync::Arc;
-use config::Config;
 use dal::Support;
 use std::thread;
+use config::Provider;
 
 
 mod dal;
@@ -61,7 +61,7 @@ fn main() {
 
     let  arc_register = Arc::new(Register::new(cluster));
 
-    let provider = Config::new(path, arc_register.clone());
+    let provider = Provider::new(path, arc_register.clone());
 
     let pool = threadpool::ThreadPool::new(4);
     let support = Support::new(arc_register, provider, &pool);

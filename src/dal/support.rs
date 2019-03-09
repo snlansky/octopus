@@ -15,19 +15,19 @@ use config::Services;
 use std::collections::HashMap;
 use dal::Error;
 use dal::Error::CommonError;
-use dal::mem::Mem;
 use dal::Route;
+use dal::utils::arc_mutex;
 
 
-pub struct Support<T: Provider> {
+pub struct Support {
     register: Arc<Register>,
-    provider: T,
+    provider: Provider,
     port: i32,
     routes: HashMap<String, Route>,
 }
 
-impl<T: Provider> Support<T> {
-    pub fn new(register: Arc<Register>, mut provider: T, pool: &ThreadPool) -> Self {
+impl Support {
+    pub fn new(register: Arc<Register>, mut provider: Provider, pool: &ThreadPool) -> Arc<Mutex<Self>> {
         let services = provider.watch();
         info!("\n{:?}", services);
         let mut support = Support {
@@ -37,7 +37,8 @@ impl<T: Provider> Support<T> {
             routes: HashMap::new(),
         };
         support.update(&services);
-        support.start(pool);
+        let support = arc_mutex(support);
+        Self::start(support.clone(), pool);
         support
     }
 
@@ -49,12 +50,15 @@ impl<T: Provider> Support<T> {
         self.routes.get(db_alias)
     }
 
-    pub fn start(&mut self, pool: &ThreadPool) {
-        loop {
-            let services = self.provider.watch();
-            info!("\n{:?}", services);
-            self.update(&services);
-        }
+    pub fn start(s :Arc<Mutex<Self>>, pool: &ThreadPool) {
+        pool.execute(move ||{
+            loop {
+                let mut p = s.lock().unwrap();
+                let services = p.provider.watch();
+                info!("\n{:?}", services);
+                p.update(&services);
+            }
+        });
     }
 
     fn update(&mut self, services: &Services) {

@@ -34,10 +34,20 @@ mod discovery;
 mod proto;
 mod server;
 
+
+fn init() {
+    use std::env;
+    let var = env::var("RUST_LOG");
+    if var.is_err() || var.unwrap().is_empty() {
+        env::set_var("RUST_LOG", "info");
+    }
+}
+
 fn main() {
+    init();
     env_logger::init();
 
-    let matches  = App::new("octopus")
+    let matches = App::new("octopus")
         .version("1.0")
         .author("snlan@live.cn")
         .about("data bus")
@@ -59,16 +69,15 @@ fn main() {
 
     info!("{} {}", cluster, path);
 
-    let  arc_register = Arc::new(Register::new(cluster));
-
+    let arc_register = Arc::new(Register::new(cluster));
     let provider = Provider::new(path, arc_register.clone());
-
     let pool = threadpool::ThreadPool::new(4);
     let support = Support::new(arc_register, provider, &pool);
+    let server = server::new(support);
 
-    let rpc = server::new(support);
-
+    info!("grpc server started on {}", server.local_addr());
     loop {
         thread::park();
     }
 }
+

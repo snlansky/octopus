@@ -21,7 +21,6 @@ use dal::utils::arc_mutex;
 
 pub struct Support {
     register: Arc<Register>,
-    provider: Provider,
     port: i32,
     routes: HashMap<String, Route>,
 }
@@ -29,16 +28,15 @@ pub struct Support {
 impl Support {
     pub fn new(register: Arc<Register>, mut provider: Provider, pool: &ThreadPool) -> Arc<Mutex<Self>> {
         let services = provider.watch();
-        info!("\n{:?}", services);
+        info!("{:?}", services);
         let mut support = Support {
             register,
-            provider,
             port: services.port,
             routes: HashMap::new(),
         };
         support.update(&services);
         let support = arc_mutex(support);
-        Self::start(support.clone(), pool);
+        async_update(support.clone(), provider, pool);
         support
     }
 
@@ -50,16 +48,7 @@ impl Support {
         self.routes.get(db_alias)
     }
 
-    pub fn start(s :Arc<Mutex<Self>>, pool: &ThreadPool) {
-        pool.execute(move ||{
-            loop {
-                let mut p = s.lock().unwrap();
-                let services = p.provider.watch();
-                info!("\n{:?}", services);
-                p.update(&services);
-            }
-        });
-    }
+
 
     fn update(&mut self, services: &Services) {
         for (alias, data) in &services.data {
@@ -82,13 +71,24 @@ impl Support {
 
         let list = self.routes.iter()
             .map(|(k, _)| k.clone())
-            .filter(|k|!services.data.contains_key(k))
+            .filter(|k| !services.data.contains_key(k))
             .collect::<Vec<_>>();
         for alias in list {
             info!("remove {}", alias);
             self.routes.remove(&alias);
         }
     }
+}
+
+fn async_update(s: Arc<Mutex<Support>>, mut provider: Provider, pool: &ThreadPool) {
+    pool.execute(move || {
+        loop {
+            let services = provider.watch();
+            let mut p = s.lock().unwrap();
+            info!("\n{:?}", services);
+            p.update(&services);
+        }
+    });
 }
 
 pub fn add(db: Arc<Mutex<DB>>, tbl: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {

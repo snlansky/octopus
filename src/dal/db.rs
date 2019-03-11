@@ -36,8 +36,7 @@ impl DB {
             result
                 .map(|x| x.unwrap())
                 .map(|row| {
-                    let table_name = mysql::from_row(row);
-                    table_name
+                    mysql::from_row(row)
                 })
                 .collect::<Vec<_>>()
         })?;

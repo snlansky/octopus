@@ -13,11 +13,11 @@ pub struct Route {
 }
 
 impl Route {
-    pub fn new(alias: &String, route: &DataRoute) -> Result<Route, Error> {
+    pub fn new(alias: &str, route: &DataRoute) -> Result<Route, Error> {
         let db = open_db(&route.db)?;
         let mem = Self::init_mem(&route.mem)?;
         let route = Route {
-            alias: alias.clone(),
+            alias: alias.to_string(),
             route: route.clone(),
             db,
             mem,

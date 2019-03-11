@@ -47,21 +47,24 @@ impl Support {
         self.port
     }
 
-    pub fn data_route(&self, db_alias: &String) -> Option<&Route> {
+    pub fn data_route(&self, db_alias: &str) -> Option<&Route> {
         self.routes.get(db_alias)
     }
 
     fn update(&mut self, services: &Services) {
         for (alias, data) in &services.data {
-            if let Some(old) = self.routes.get_mut(alias) {
+            if let Some(route) = self.routes.get_mut(alias) {
                 // 有就更新
-                if !old.eq(data) {
-                    old.update(data).map_err(|e| {
-                        error!(
-                            "update {} failed, reason {:?}, config: {:?}",
-                            alias, e, &data
-                        )
-                    });
+                if !route.eq(data) {
+                    match route.update(data) {
+                        Err(e) => {
+                            error!(
+                                "update {} failed, reason {:?}, config: {:?}",
+                                alias, e, &data
+                            )
+                        }
+                        _ => {}
+                    };
                 }
             }
             if !self.routes.contains_key(alias) {
@@ -121,7 +124,7 @@ pub fn remove(
             .iter()
             .map(|row| tbl.get_model_key(row))
             .collect::<Vec<_>>();
-        if mids.len() > 0 {
+        if !mids.is_empty() {
             mem.del(tbl.clone(), mids)?;
         }
     }
@@ -304,7 +307,7 @@ mod tests {
             Arc::new(table),
             body,
         )
-        .unwrap();
+            .unwrap();
         thread::sleep(time::Duration::from_secs(2));
         assert_eq!(json!(2), i);
     }

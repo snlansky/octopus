@@ -29,18 +29,18 @@ pub struct Field {
 }
 
 impl Field {
-    pub fn get_value(&self, s: &String) -> Result<JsValue, Error> {
+    pub fn get_value(&self, s: &str) -> Result<JsValue, Error> {
         match self.tpe.as_str() {
-            "char" => Ok(JsValue::String(s.clone())),
-            "varchar" => Ok(JsValue::String(s.clone())),
-            "text" => Ok(JsValue::String(s.clone())),
-            "tinytext" => Ok(JsValue::String(s.clone())),
-            "mediumtext" => Ok(JsValue::String(s.clone())),
-            "longtext" => Ok(JsValue::String(s.clone())),
-            "date" => Ok(JsValue::String(s.clone())),
-            "time" => Ok(JsValue::String(s.clone())),
-            "datetime" => Ok(JsValue::String(s.clone())),
-            "timestamp" => Ok(JsValue::String(s.clone())),
+            "char" => Ok(json!(s)),
+            "varchar" => Ok(json!(s)),
+            "text" => Ok(json!(s)),
+            "tinytext" => Ok(json!(s)),
+            "mediumtext" => Ok(json!(s)),
+            "longtext" => Ok(json!(s)),
+            "date" => Ok(json!(s)),
+            "time" => Ok(json!(s)),
+            "datetime" => Ok(json!(s)),
+            "timestamp" => Ok(json!(s)),
             "int" => {
                 let i = s.parse::<i64>().map_err(|_| Error::CommonError {
                     info: format!(

@@ -15,6 +15,7 @@ install:
 	cargo install protobuf-codegen
 	cargo install grpcio-compiler
 	rustup component add rustfmt
+	rustup component add clippy-preview
 start:
 	docker-compose up -d
 stop:
@@ -26,3 +27,4 @@ run:
 
 fmt:
 	cargo fmt
+	cargo clippy

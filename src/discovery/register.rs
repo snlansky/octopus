@@ -57,10 +57,10 @@ impl Register {
     }
 
     fn split(path: String) -> (String, String) {
-        if !path.contains("/") {
+        if !path.contains('/') {
             ("/".to_string(), path)
         } else {
-            let v: Vec<_> = path.split("/").collect();
+            let v: Vec<_> = path.split('/').collect();
             let mut v = v.into_iter().filter(|&f| !f.eq("")).collect::<Vec<_>>();
             let node = v.pop().unwrap();
             (format!("/{}", v.join("/")), node.to_string())

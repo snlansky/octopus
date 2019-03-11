@@ -55,7 +55,7 @@ impl Dao {
             DML::Select => {
                 let rows = qr
                     .map(|x| x.unwrap())
-                    .map(|row| Self::parse_row(row))
+                    .map(Self::parse_row)
                     .collect::<Vec<_>>();
                 Ok(DaoResult::Rows(rows))
             }
@@ -104,7 +104,7 @@ impl Dao {
             .clone();
         let opr = Self::extra_op(&mut cond_map)?;
         let cond = self.parse_op(&cond_map)?;
-        if cond.len() > 0 {
+        if !cond.is_empty() {
             self.sql = format!(
                 "DELETE FROM {} WHERE {}",
                 self.tbl.get_model(),
@@ -131,7 +131,7 @@ impl Dao {
             }
         }
 
-        if cond.len() > 0 {
+        if !cond.is_empty() {
             self.sql = format!(
                 "UPDATE {} SET {} WHERE {}",
                 self.tbl.get_model(),
@@ -284,7 +284,7 @@ impl Dao {
                         .map(|f| f.unwrap())
                         .map(|f| f.as_sql(true))
                         .collect::<Vec<_>>();
-                    if list.len() > 0 {
+                    if !list.is_empty() {
                         param = format!("{} in ({})", key[0], list.join(","));
                     }
                 }
@@ -325,8 +325,8 @@ impl Dao {
     }
 
     fn get_js<T>(&self, token: T) -> Result<Map<String, JsValue>, Error>
-    where
-        T: ToString + Display,
+        where
+            T: ToString + Display,
     {
         let values = self.body.get(token.to_string()).ok_or(Error::CommonError {
             info: "invalid json format".to_string(),
@@ -345,7 +345,7 @@ impl Dao {
                 map.insert(c.name_str().as_ref().to_string(), v.convert());
             }
         }
-        return map;
+        map
     }
 }
 

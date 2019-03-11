@@ -152,8 +152,8 @@ impl LuaScript {
     fn invoke_redis<T: FromRedisValue>(
         &self,
         con: &ConnectionLike,
-        hash: &String,
-        code: &String,
+        hash: &str,
+        code: &str,
     ) -> RedisResult<T> {
         loop {
             match cmd("EVALSHA")
@@ -168,7 +168,7 @@ impl LuaScript {
                 }
                 Err(err) => {
                     if err.kind() == ErrorKind::NoScriptError {
-                        let _: () = cmd("SCRIPT").arg("LOAD").arg(code.as_bytes()).query(con)?;
+                        cmd("SCRIPT").arg("LOAD").arg(code.as_bytes()).query(con)?;
                     } else {
                         return Err(err);
                     }

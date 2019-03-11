@@ -62,7 +62,7 @@ impl MemContext {
         lua.srem(tbl.get_table_set_key(), mid);
 
         let mem = self.get_mem()?;
-        lua.invoke(mem.conn()).map_err(|e| Error::from(e))
+        lua.invoke(mem.conn()).map_err(Error::from)
     }
 
     pub fn load_update(
@@ -94,7 +94,7 @@ impl MemContext {
                 let vs: HashMap<String, String> = values.convert();
                 lua.hmset(mid.clone(), vs);
                 lua.expire(mid.clone(), 60 * 60);
-                let _: isize = lua.invoke(mem.conn()).map_err(|e| Error::from(e))?;
+                let _: isize = lua.invoke(mem.conn()).map_err(Error::from)?;
                 return Ok(vec![mid]);
             }
         }
@@ -119,7 +119,7 @@ impl MemContext {
             lua.expire(mid.clone(), 60 * 60);
             mids.push(mid);
         }
-        let _: isize = lua.invoke(mem.conn()).map_err(|e| Error::from(e))?;
+        let _: isize = lua.invoke(mem.conn()).map_err(Error::from)?;
         Ok(mids)
     }
 
@@ -129,7 +129,7 @@ impl MemContext {
         pv: HashMap<String, JsValue>,
         cond: JsValue,
         db: Arc<Mutex<DB>>,
-        fields: &Vec<Field>,
+        fields: &[Field],
     ) -> Result<JsValue, Error> {
         let mid = tbl.get_model_key(&pv);
         let mem = self.get_mem()?;
@@ -140,14 +140,12 @@ impl MemContext {
                 DaoResult::Rows(rows) => rows,
                 _ => unreachable!(),
             };
-            if rows.len() == 0 {
+            if rows.is_empty() {
                 return Ok(JsValue::Array(Vec::new()));
             }
             let mut lua = LuaScript::new();
-            let row0 = rows
-                .get(0)
-                .unwrap()
-                .into_iter()
+            let row0 = (&rows[0])
+                .iter()
                 .map(|(k, v)| {
                     let s: String = v.convert();
                     (k.clone(), s)
@@ -158,14 +156,13 @@ impl MemContext {
             lua.invoke(mem.conn())?;
         }
 
-        let _: () = self.try_register_schema(tbl.clone(), mem.conn())?;
+        self.try_register_schema(tbl.clone(), mem.conn())?;
 
-        let row;
-        if fields.len() > 0 {
-            row = self.get_value(mid, fields, mem.conn())?;
+        let row = if fields.is_empty() {
+            self.get_value(mid, tbl.get_fields(), mem.conn())?
         } else {
-            row = self.get_value(mid, tbl.get_fields(), mem.conn())?;
-        }
+            self.get_value(mid, fields, mem.conn())?
+        };
         Ok(JsValue::Array(vec![row]))
     }
 
@@ -191,13 +188,13 @@ impl MemContext {
         if exist {
             return Ok(());
         }
-        tbl.register_schema(con).map_err(|e| Error::MemError(e))
+        tbl.register_schema(con).map_err(Error::MemError)
     }
 
     fn get_value(
         &self,
         mid: String,
-        fields: &Vec<Field>,
+        fields: &[Field],
         con: &Connection,
     ) -> Result<JsValue, Error> {
         let fs = fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
@@ -216,7 +213,7 @@ impl MemContext {
 pub fn open_client(route: &MemRoute) -> Result<Connection, Error> {
     let url = format!("redis://:{}@{}:{}/", route.pass, route.host, route.port);
     let client = redis::Client::open(url.as_str())?;
-    client.get_connection().map_err(|e| Error::from(e))
+    client.get_connection().map_err(Error::from)
 }
 
 #[cfg(test)]

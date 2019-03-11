@@ -93,7 +93,7 @@ impl ConvertTo<JsValue> for HashMap<String, MyValue> {
         for (k, v) in self {
             m.insert(k.clone(), v.convert());
         }
-        return JsValue::Object(m);
+        JsValue::Object(m)
     }
 }
 

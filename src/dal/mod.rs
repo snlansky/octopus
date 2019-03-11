@@ -15,3 +15,5 @@ pub use dal::support::Support;
 pub use dal::error::Error;
 
 pub use dal::route::Route;
+
+pub use dal::support::add;

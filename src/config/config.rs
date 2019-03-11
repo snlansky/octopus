@@ -1,6 +1,5 @@
+use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
-use serde_derive::{Serialize, Deserialize};
-
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct DBRoute {
@@ -12,8 +11,7 @@ pub struct DBRoute {
     pub name: String,
 }
 
-
-#[derive(Debug, Serialize, Deserialize,PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct MemRoute {
     pub host: String,
     pub port: i32,
@@ -28,7 +26,6 @@ pub struct DataRoute {
     pub mem: Option<MemRoute>,
 }
 
-
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Services {
     pub port: i32,
@@ -37,12 +34,12 @@ pub struct Services {
 
 #[cfg(test)]
 mod tests {
+    use config::config::DBRoute;
     use config::config::DataRoute;
     use config::config::MemRoute;
-    use config::config::DBRoute;
-    use std::collections::HashMap;
     use config::config::Services;
     use redis::pack_command;
+    use std::collections::HashMap;
 
     #[test]
     fn marhshal() {
@@ -54,7 +51,6 @@ mod tests {
                 host: "www.snlan.top".to_string(),
                 port: 3306,
                 name: "block".to_string(),
-
             },
             mem: Some(MemRoute {
                 host: "www.snlan.top".to_string(),

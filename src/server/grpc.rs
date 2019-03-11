@@ -1,13 +1,13 @@
-use proto::orm_grpc::OrmServer;
-use proto::orm_grpc::Orm;
-use grpc::RequestOptions;
-use proto::orm::Request;
-use grpc::SingleResponse;
-use proto::orm::Response;
 use dal::Support;
+use grpc::RequestOptions;
+use grpc::Server;
+use grpc::SingleResponse;
+use proto::orm::Request;
+use proto::orm::Response;
+use proto::orm_grpc::Orm;
+use proto::orm_grpc::OrmServer;
 use std::sync::Arc;
 use std::sync::Mutex;
-use grpc::Server;
 
 pub fn new(support: Arc<Mutex<Support>>) -> Server {
     let lock = support.lock().unwrap();
@@ -48,4 +48,3 @@ impl Orm for Handler {
         unimplemented!()
     }
 }
-

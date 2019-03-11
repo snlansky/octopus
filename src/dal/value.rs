@@ -1,7 +1,7 @@
-use serde_json::Value as JsValue;
 use mysql::Value as MyValue;
-use std::collections::HashMap;
 use serde_json::Map;
+use serde_json::Value as JsValue;
+use std::collections::HashMap;
 
 pub trait ConvertTo<T> {
     fn convert(&self) -> T;
@@ -34,7 +34,7 @@ impl ConvertTo<String> for JsValue {
                     "0".to_string()
                 }
             }
-            _ => self.to_string()
+            _ => self.to_string(),
         }
     }
 }
@@ -81,7 +81,7 @@ impl ConvertTo<JsValue> for MyValue {
             MyValue::Int(i) => json!(i),
             MyValue::UInt(u) => json!(u),
             MyValue::NULL => json!(null),
-            _ => json!(self.as_sql(false).replace("'","")),
+            _ => json!(self.as_sql(false).replace("'", "")),
         }
     }
 }
@@ -113,7 +113,7 @@ impl ConvertTo<Option<MyValue>> for JsValue {
                     None
                 }
             }
-            _ => None
+            _ => None,
         }
     }
 }

@@ -11,9 +11,7 @@ pub enum Error {
     #[fail(display = "Redis error {}.", _0)]
     MemError(#[cause] RedisError),
     #[fail(display = "Common error {}.", info)]
-    CommonError {
-        info: String,
-    },
+    CommonError { info: String },
 }
 
 impl From<MySqlError> for Error {

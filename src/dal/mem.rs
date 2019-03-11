@@ -1,24 +1,24 @@
-use std::collections::HashMap;
+use config::MemRoute;
+use dal::dao::Dao;
+use dal::dao::DaoResult;
+use dal::dao::DML;
+use dal::db::DB;
 use dal::error::Error;
 use dal::lua::LuaScript;
+use dal::table::Field;
 use dal::table::Table;
-use std::sync::Mutex;
-use redis::Connection;
+use dal::value::ConvertTo;
 use redis::Commands;
-use std::sync::Arc;
+use redis::Connection;
 use serde_json::Map;
 use serde_json::Value as JsValue;
-use dal::db::DB;
-use dal::dao::Dao;
-use dal::dao::DML;
-use dal::value::ConvertTo;
-use dal::dao::DaoResult;
-use dal::table::Field;
-use config::MemRoute;
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::MutexGuard;
 
 pub struct Mem {
-    con: Connection
+    con: Connection,
 }
 
 impl Mem {
@@ -43,32 +43,48 @@ pub struct MemContext {
 
 impl MemContext {
     pub fn new(mem: Arc<Mutex<Mem>>) -> Self {
-        MemContext { record: HashMap::new(), mem }
+        MemContext {
+            record: HashMap::new(),
+            mem,
+        }
     }
 
     fn get_mem(&self) -> Result<MutexGuard<Mem>, Error> {
-        let mem = self.mem.lock()
-            .map_err(|e| Error::CommonError { info: format!("get mem connection lock error: {:?}", e) })?;
+        let mem = self.mem.lock().map_err(|e| Error::CommonError {
+            info: format!("get mem connection lock error: {:?}", e),
+        })?;
         Ok(mem)
     }
-
 
     pub fn del(&mut self, tbl: Arc<Table>, mid: Vec<String>) -> Result<isize, Error> {
         let mut lua = LuaScript::new();
         lua.del(mid.clone());
         lua.srem(tbl.get_table_set_key(), mid);
 
-        let mem  = self.get_mem()?;
+        let mem = self.get_mem()?;
         lua.invoke(mem.conn()).map_err(|e| Error::from(e))
     }
 
-    pub fn load_update(&mut self, tbl: Arc<Table>, body: JsValue, db: Arc<Mutex<DB>>) -> Result<Vec<String>, Error> {
-        let conditions = body.get("conditions").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
-        let cond = conditions.as_object().ok_or(Error::CommonError { info: "invalid json format at token conditions".to_string() })?;
+    pub fn load_update(
+        &mut self,
+        tbl: Arc<Table>,
+        body: JsValue,
+        db: Arc<Mutex<DB>>,
+    ) -> Result<Vec<String>, Error> {
+        let conditions = body.get("conditions").ok_or(Error::CommonError {
+            info: "invalid json format".to_string(),
+        })?;
+        let cond = conditions.as_object().ok_or(Error::CommonError {
+            info: "invalid json format at token conditions".to_string(),
+        })?;
         let (pv_map, pk_match) = Self::match_pk(tbl.clone(), cond);
 
-        let values = body.get("values").ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
-        let values = values.as_object().ok_or(Error::CommonError { info: "invalid json format at token values".to_string() })?;
+        let values = body.get("values").ok_or(Error::CommonError {
+            info: "invalid json format".to_string(),
+        })?;
+        let values = values.as_object().ok_or(Error::CommonError {
+            info: "invalid json format at token values".to_string(),
+        })?;
 
         let mem = self.get_mem()?;
         if pk_match {
@@ -95,7 +111,8 @@ impl MemContext {
             for (key, value) in values {
                 row.insert(key.clone(), value.clone());
             }
-            let vs: HashMap<String, String> = row.into_iter()
+            let vs: HashMap<String, String> = row
+                .into_iter()
                 .map(|(k, v)| (k, v.convert()))
                 .collect::<HashMap<_, _>>();
             lua.hmset(mid.clone(), vs);
@@ -106,7 +123,14 @@ impl MemContext {
         Ok(mids)
     }
 
-    pub fn load_find(&mut self, tbl: Arc<Table>, pv: HashMap<String, JsValue>, cond: JsValue, db: Arc<Mutex<DB>>, fields: &Vec<Field>) -> Result<JsValue, Error> {
+    pub fn load_find(
+        &mut self,
+        tbl: Arc<Table>,
+        pv: HashMap<String, JsValue>,
+        cond: JsValue,
+        db: Arc<Mutex<DB>>,
+        fields: &Vec<Field>,
+    ) -> Result<JsValue, Error> {
         let mid = tbl.get_model_key(&pv);
         let mem = self.get_mem()?;
         let exist: bool = mem.conn().exists(mid.clone())?;
@@ -120,7 +144,10 @@ impl MemContext {
                 return Ok(JsValue::Array(Vec::new()));
             }
             let mut lua = LuaScript::new();
-            let row0 = rows.get(0).unwrap().into_iter()
+            let row0 = rows
+                .get(0)
+                .unwrap()
+                .into_iter()
                 .map(|(k, v)| {
                     let s: String = v.convert();
                     (k.clone(), s)
@@ -130,7 +157,6 @@ impl MemContext {
             lua.expire(mid.clone(), 60 * 60);
             lua.invoke(mem.conn())?;
         }
-
 
         let _: () = self.try_register_schema(tbl.clone(), mem.conn())?;
 
@@ -143,11 +169,16 @@ impl MemContext {
         Ok(JsValue::Array(vec![row]))
     }
 
-    pub fn match_pk(tbl: Arc<Table>, cond: &Map<String, JsValue>) -> (HashMap<String, JsValue>, bool) {
+    pub fn match_pk(
+        tbl: Arc<Table>,
+        cond: &Map<String, JsValue>,
+    ) -> (HashMap<String, JsValue>, bool) {
         let pks = tbl.get_pks();
-        let pv = pks.iter()
+        let pv = pks
+            .iter()
             .filter_map(|key| {
-                cond.get(format!("{}__eq", key).as_str()).map(|f| (key.clone(), f.clone()))
+                cond.get(format!("{}__eq", key).as_str())
+                    .map(|f| (key.clone(), f.clone()))
             })
             .collect::<HashMap<_, _>>();
         let m = pv.len() == pks.len();
@@ -163,7 +194,12 @@ impl MemContext {
         tbl.register_schema(con).map_err(|e| Error::MemError(e))
     }
 
-    fn get_value(&self, mid: String, fields: &Vec<Field>, con: &Connection) -> Result<JsValue, Error> {
+    fn get_value(
+        &self,
+        mid: String,
+        fields: &Vec<Field>,
+        con: &Connection,
+    ) -> Result<JsValue, Error> {
         let fs = fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
         let values: Vec<String> = con.hget(mid, fs)?;
 
@@ -185,18 +221,18 @@ pub fn open_client(route: &MemRoute) -> Result<Connection, Error> {
 
 #[cfg(test)]
 mod tests {
-    use dal::mem::open_client;
-    use dal::mem::MemContext;
-    use std::sync::Arc;
-    use std::sync::Mutex;
-    use dal::table::Table;
-    use dal::table::Field;
-    use serde_json::Value;
+    use config::DBRoute;
+    use config::MemRoute;
     use dal::db::open_db;
     use dal::db::DB;
-    use config::MemRoute;
-    use config::DBRoute;
+    use dal::mem::open_client;
     use dal::mem::Mem;
+    use dal::mem::MemContext;
+    use dal::table::Field;
+    use dal::table::Table;
+    use serde_json::Value;
+    use std::sync::Arc;
+    use std::sync::Mutex;
 
     fn get_table_conn() -> (Table, MemContext, DB) {
         let r = MemRoute {
@@ -212,12 +248,31 @@ mod tests {
         let db = "block".to_string();
         let model = "TbTestModel".to_string();
         let pks = vec!["RoleGuid".to_string(), "TwoKey".to_string()];
-        let fields = vec![Field { name: "RoleGuid".to_string(), tpe: "varchar".to_string() },
-                          Field { name: "TwoKey".to_string(), tpe: "int".to_string() },
-                          Field { name: "CreateTime".to_string(), tpe: "varchar".to_string() },
-                          Field { name: "CreateDatetime".to_string(), tpe: "date".to_string() },
-                          Field { name: "CreateDate".to_string(), tpe: "datetime".to_string() },
-                          Field { name: "CreateTimestamp".to_string(), tpe: "int".to_string() },
+        let fields = vec![
+            Field {
+                name: "RoleGuid".to_string(),
+                tpe: "varchar".to_string(),
+            },
+            Field {
+                name: "TwoKey".to_string(),
+                tpe: "int".to_string(),
+            },
+            Field {
+                name: "CreateTime".to_string(),
+                tpe: "varchar".to_string(),
+            },
+            Field {
+                name: "CreateDatetime".to_string(),
+                tpe: "date".to_string(),
+            },
+            Field {
+                name: "CreateDate".to_string(),
+                tpe: "datetime".to_string(),
+            },
+            Field {
+                name: "CreateTimestamp".to_string(),
+                tpe: "int".to_string(),
+            },
         ];
         let table = Table::default(db, model, pks, fields);
 
@@ -236,7 +291,12 @@ mod tests {
     #[test]
     fn test_mem_del() {
         let (table, mut mem, _) = get_table_conn();
-        let res = mem.del(Arc::new(table), vec!["block:TbTestModel:RoleGuid,TwoKey:0000009b790008004b64fb,3".to_string()]).unwrap();
+        let res = mem
+            .del(
+                Arc::new(table),
+                vec!["block:TbTestModel:RoleGuid,TwoKey:0000009b790008004b64fb,3".to_string()],
+            )
+            .unwrap();
 
         assert_eq!(res, 1);
     }
@@ -247,7 +307,9 @@ mod tests {
         let data = r##"{"conditions":{"RoleGuid__eq":"0000009b790008004b64fb","TwoKey__eq":"3","operator":"AND"},"values":{"CreateDate":"2017-00-00","CreateDatetime":"2017-00-00 09:16:55","CreateTime":"10:00:00","CreateTimestamp":"1"}}"##;
         let body: Value = serde_json::from_str(data).unwrap();
 
-        let res = mem.load_update(Arc::new(table), body, Arc::new(Mutex::new(db))).unwrap();
+        let res = mem
+            .load_update(Arc::new(table), body, Arc::new(Mutex::new(db)))
+            .unwrap();
         assert_eq!(res.len(), 1);
     }
 
@@ -261,8 +323,19 @@ mod tests {
         let cond = cond.as_object().unwrap();
         let table = Arc::new(table);
         let (pv_map, _) = MemContext::match_pk(table.clone(), cond);
-        let fields = vec![Field { name: "RoleGuid".to_string(), tpe: "varchar".to_string() }, Field { name: "TwoKey".to_string(), tpe: "int".to_string() }];
-        let res = mem.load_find(table, pv_map, conditions, Arc::new(Mutex::new(db)), &fields).unwrap();
+        let fields = vec![
+            Field {
+                name: "RoleGuid".to_string(),
+                tpe: "varchar".to_string(),
+            },
+            Field {
+                name: "TwoKey".to_string(),
+                tpe: "int".to_string(),
+            },
+        ];
+        let res = mem
+            .load_find(table, pv_map, conditions, Arc::new(Mutex::new(db)), &fields)
+            .unwrap();
         println!("{}", res);
     }
 }

@@ -1,9 +1,9 @@
+use config::DataRoute;
+use config::MemRoute;
+use dal::db::open_db;
 use dal::db::DB;
 use dal::mem::Mem;
 use dal::Error;
-use dal::db::open_db;
-use config::DataRoute;
-use config::MemRoute;
 
 pub struct Route {
     alias: String,

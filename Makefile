@@ -14,6 +14,7 @@ help:
 install:
 	cargo install protobuf-codegen
 	cargo install grpcio-compiler
+	rustup component add rustfmt
 start:
 	docker-compose up -d
 stop:
@@ -22,3 +23,6 @@ test:
 	cargo test -- --nocapture
 run:
 	RUST_LOG=info ./target/debug/octopus --cluster=www.snlan.top:2181,www.snlan.top:2182,www.snlan.top:2183 --path=/dal_orm_release
+
+fmt:
+	cargo fmt

@@ -1,11 +1,10 @@
+use config::Services;
 use discovery::Register;
 use std::sync::mpsc::channel;
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::Sender;
-use std::sync::Mutex;
 use std::sync::Arc;
-use config::Services;
-
+use std::sync::Mutex;
 
 pub struct Provider {
     root: String,
@@ -34,15 +33,16 @@ impl Provider {
         }
 
         let tx = self.tx.clone();
-        let (data, _) = sr.zk.get_data_w(self.root.as_str(), move |_| {
-            tx.lock().unwrap().send(()).unwrap();
-        }).unwrap();
+        let (data, _) = sr
+            .zk
+            .get_data_w(self.root.as_str(), move |_| {
+                tx.lock().unwrap().send(()).unwrap();
+            })
+            .unwrap();
 
         self.start = true;
         match serde_json::from_slice(data.as_slice()) {
-            Ok(s) => {
-                s
-            }
+            Ok(s) => s,
             _ => {
                 error!("unmarshal json error");
                 self.watch()

@@ -1,5 +1,5 @@
-extern crate redis;
 extern crate mysql;
+extern crate redis;
 #[macro_use]
 extern crate serde;
 #[macro_use]
@@ -12,28 +12,26 @@ extern crate core;
 extern crate zookeeper;
 #[macro_use]
 extern crate log;
-extern crate env_logger;
-extern crate threadpool;
 extern crate clap;
-extern crate protobuf;
-extern crate grpc;
 extern crate crossbeam;
+extern crate env_logger;
+extern crate grpc;
+extern crate protobuf;
+extern crate threadpool;
 
 use clap::App;
-use discovery::Register;
 use clap::Arg;
-use std::sync::Arc;
-use dal::Support;
-use std::thread;
 use config::Provider;
+use dal::Support;
+use discovery::Register;
+use std::sync::Arc;
+use std::thread;
 
-
-mod dal;
 mod config;
+mod dal;
 mod discovery;
 mod proto;
 mod server;
-
 
 fn init() {
     use std::env;
@@ -51,20 +49,26 @@ fn main() {
         .version("1.0")
         .author("snlan@live.cn")
         .about("data bus")
-        .arg(Arg::with_name("cluster")
-            .short("c")
-            .long("cluster")
-            .value_name("ADDRESS")
-            .help("The zookeeper cluster address.")
-            .takes_value(true))
-        .arg(Arg::with_name("path")
-            .short("p")
-            .long("path")
-            .help("The config path at zookeeper.")
-            .takes_value(true))
+        .arg(
+            Arg::with_name("cluster")
+                .short("c")
+                .long("cluster")
+                .value_name("ADDRESS")
+                .help("The zookeeper cluster address.")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("path")
+                .short("p")
+                .long("path")
+                .help("The config path at zookeeper.")
+                .takes_value(true),
+        )
         .get_matches();
 
-    let cluster = matches.value_of("cluster").unwrap_or("www.snlan.top:2181,www.snlan.top:2182,www.snlan.top:2183");
+    let cluster = matches
+        .value_of("cluster")
+        .unwrap_or("www.snlan.top:2181,www.snlan.top:2182,www.snlan.top:2183");
     let path = matches.value_of("path").unwrap_or("/dal_orm_release");
 
     info!("{} {}", cluster, path);
@@ -80,4 +84,3 @@ fn main() {
         thread::park();
     }
 }
-

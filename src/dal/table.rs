@@ -1,9 +1,9 @@
-use std::collections::HashMap;
-use redis::Connection;
-use dal::lua::LuaScript;
-use serde_json::Value as JsValue;
-use dal::value::ConvertTo;
 use dal::error::Error;
+use dal::lua::LuaScript;
+use dal::value::ConvertTo;
+use redis::Connection;
+use serde_json::Value as JsValue;
+use std::collections::HashMap;
 
 #[allow(dead_code)]
 const METADATA: &str = "metadata";
@@ -42,46 +42,83 @@ impl Field {
             "datetime" => Ok(JsValue::String(s.clone())),
             "timestamp" => Ok(JsValue::String(s.clone())),
             "int" => {
-                let i = s.parse::<i64>()
-                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                let i = s.parse::<i64>().map_err(|_| Error::CommonError {
+                    info: format!(
+                        "field: {} [{}] convert to {} failed",
+                        self.name, s, self.tpe
+                    ),
+                })?;
                 Ok(json!(i))
             }
             "tinyint" => {
-                let i = s.parse::<i8>()
-                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                let i = s.parse::<i8>().map_err(|_| Error::CommonError {
+                    info: format!(
+                        "field: {} [{}] convert to {} failed",
+                        self.name, s, self.tpe
+                    ),
+                })?;
                 Ok(json!(i))
             }
             "smallint" => {
-                let i = s.parse::<i16>()
-                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                let i = s.parse::<i16>().map_err(|_| Error::CommonError {
+                    info: format!(
+                        "field: {} [{}] convert to {} failed",
+                        self.name, s, self.tpe
+                    ),
+                })?;
                 Ok(json!(i))
             }
             "mediumint" => {
-                let i = s.parse::<i32>()
-                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                let i = s.parse::<i32>().map_err(|_| Error::CommonError {
+                    info: format!(
+                        "field: {} [{}] convert to {} failed",
+                        self.name, s, self.tpe
+                    ),
+                })?;
                 Ok(json!(i))
             }
             "bigint" => {
-                let i = s.parse::<i64>()
-                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                let i = s.parse::<i64>().map_err(|_| Error::CommonError {
+                    info: format!(
+                        "field: {} [{}] convert to {} failed",
+                        self.name, s, self.tpe
+                    ),
+                })?;
                 Ok(json!(i))
             }
             "float" => {
-                let i = s.parse::<f32>()
-                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                let i = s.parse::<f32>().map_err(|_| Error::CommonError {
+                    info: format!(
+                        "field: {} [{}] convert to {} failed",
+                        self.name, s, self.tpe
+                    ),
+                })?;
                 Ok(json!(i))
             }
             "double" => {
-                let i = s.parse::<f64>()
-                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                let i = s.parse::<f64>().map_err(|_| Error::CommonError {
+                    info: format!(
+                        "field: {} [{}] convert to {} failed",
+                        self.name, s, self.tpe
+                    ),
+                })?;
                 Ok(json!(i))
             }
             "decimal" => {
-                let i = s.parse::<f64>()
-                    .map_err(|_|Error::CommonError { info: format!("field: {} [{}] convert to {} failed", self.name, s, self.tpe) })?;
+                let i = s.parse::<f64>().map_err(|_| Error::CommonError {
+                    info: format!(
+                        "field: {} [{}] convert to {} failed",
+                        self.name, s, self.tpe
+                    ),
+                })?;
                 Ok(json!(i))
             }
-            _ => Err(Error::CommonError { info: format!("field: {} [{}] convert to undefined {} error", self.name, s, self.tpe) })
+            _ => Err(Error::CommonError {
+                info: format!(
+                    "field: {} [{}] convert to undefined {} error",
+                    self.name, s, self.tpe
+                ),
+            }),
         }
     }
 }
@@ -103,13 +140,26 @@ impl Table {
             if f.column_key == "PRI" {
                 pks.push(f.column_name.clone())
             }
-            fields.push(Field { name: f.column_name.clone(), tpe: f.data_type.clone() })
+            fields.push(Field {
+                name: f.column_name.clone(),
+                tpe: f.data_type.clone(),
+            })
         }
-        Table { db, model, pks, fields }
+        Table {
+            db,
+            model,
+            pks,
+            fields,
+        }
     }
 
     pub fn default(db: String, model: String, pks: Vec<String>, fields: Vec<Field>) -> Table {
-        Table { db, model, pks, fields }
+        Table {
+            db,
+            model,
+            pks,
+            fields,
+        }
     }
 
     // 生成缓存对象集合
@@ -159,25 +209,35 @@ impl Table {
     }
 
     pub fn get_model_key(&self, row: &HashMap<String, JsValue>) -> String {
-        let pv_list = self.pks.iter().map(|p| {
-            let value = row.get(p);
-            if let Some(v) = value {
-                v.convert()
-            } else {
-                "".to_string()
-            }
-        }).collect::<Vec<_>>();
+        let pv_list = self
+            .pks
+            .iter()
+            .map(|p| {
+                let value = row.get(p);
+                if let Some(v) = value {
+                    v.convert()
+                } else {
+                    "".to_string()
+                }
+            })
+            .collect::<Vec<_>>();
 
-        format!("{}:{}:{}:{}", self.db, self.model, self.pks.join(FIELD_SEP), pv_list.join(FIELD_SEP))
+        format!(
+            "{}:{}:{}:{}",
+            self.db,
+            self.model,
+            self.pks.join(FIELD_SEP),
+            pv_list.join(FIELD_SEP)
+        )
     }
 
     pub fn register_schema(&self, con: &Connection) -> Result<(), redis::RedisError> {
         let mut script = LuaScript::new();
         script.sadd(self.get_db_set_key(), vec![self.model.clone()]);
-        let fv = self.fields.iter()
-            .map(|Field { name: n, tpe: t }| {
-                (n.clone(), t.clone())
-            })
+        let fv = self
+            .fields
+            .iter()
+            .map(|Field { name: n, tpe: t }| (n.clone(), t.clone()))
             .collect::<HashMap<_, _>>();
         script.hmset(self.get_table_schema_key(), fv);
         script.invoke(con)?;
@@ -185,19 +245,18 @@ impl Table {
     }
 }
 
-
 pub fn set_hash_values(fv: &HashMap<String, JsValue>) -> HashMap<String, String> {
-    fv.iter().map(|(k, v)| {
-        (k.clone(), v.to_string())
-    }).collect::<HashMap<String, String>>()
+    fv.iter()
+        .map(|(k, v)| (k.clone(), v.to_string()))
+        .collect::<HashMap<String, String>>()
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use dal::table::Table;
     use dal::table::Field;
+    use dal::table::Table;
     use serde_json::Value as JsValue;
+    use std::collections::HashMap;
 
     #[test]
     fn test_set_hash_values() {
@@ -235,17 +294,25 @@ mod tests {
             db: "block".to_string(),
             model: "user".to_string(),
             pks: vec!["name".to_string(), "age".to_string()],
-            fields: vec![Field { name: "name".to_string(), tpe: "vchar".to_string() },
-                         Field { name: "age".to_string(), tpe: "int".to_string() },
-                         Field { name: "addr".to_string(), tpe: "text".to_string() },
+            fields: vec![
+                Field {
+                    name: "name".to_string(),
+                    tpe: "vchar".to_string(),
+                },
+                Field {
+                    name: "age".to_string(),
+                    tpe: "int".to_string(),
+                },
+                Field {
+                    name: "addr".to_string(),
+                    tpe: "text".to_string(),
+                },
             ],
         };
 
         let ret = table.register_schema(&con);
         match ret {
-            Err(e) => {
-                panic!(e)
-            }
+            Err(e) => panic!(e),
             _ => {}
         }
     }

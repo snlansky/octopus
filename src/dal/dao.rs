@@ -1,14 +1,14 @@
-use std::sync::{Arc, Mutex};
-use mysql::Value as MyValue;
-use serde_json::Value as JsValue;
 use dal::db::DB;
-use dal::table::Table;
 use dal::error::Error;
-use serde_json::Map;
-use std::fmt::Display;
-use mysql::Row;
-use std::collections::HashMap;
+use dal::table::Table;
 use dal::value::ConvertTo;
+use mysql::Row;
+use mysql::Value as MyValue;
+use serde_json::Map;
+use serde_json::Value as JsValue;
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::sync::{Arc, Mutex};
 
 pub enum DML {
     Insert,
@@ -45,17 +45,17 @@ impl Dao {
     pub fn exec_sql(&mut self, db: Arc<Mutex<DB>>) -> Result<DaoResult, Error> {
         self.build()?;
         println!("SQL->{}", self.sql);
-        let mut db = db.lock()
-            .map_err(|e| Error::CommonError { info: format!("get db lock error: {:?}", e) })?;
+        let mut db = db.lock().map_err(|e| Error::CommonError {
+            info: format!("get db lock error: {:?}", e),
+        })?;
         let mut conn = db.get_conn()?;
         let qr = conn.prep_exec(self.sql.clone(), self.params.clone())?;
 
         match self.dml {
             DML::Select => {
-                let rows = qr.map(|x| x.unwrap())
-                    .map(|row| {
-                        Self::parse_row(row)
-                    })
+                let rows = qr
+                    .map(|x| x.unwrap())
+                    .map(|row| Self::parse_row(row))
                     .collect::<Vec<_>>();
                 Ok(DaoResult::Rows(rows))
             }
@@ -85,16 +85,31 @@ impl Dao {
                 self.padd(f.to_lowercase(), dbv);
             }
         }
-        self.sql = format!("INSERT INTO `{}` ({}) VALUES({})", self.tbl.get_model(), f_list.join(","), v_list.join(", "));
+        self.sql = format!(
+            "INSERT INTO `{}` ({}) VALUES({})",
+            self.tbl.get_model(),
+            f_list.join(","),
+            v_list.join(", ")
+        );
         Ok(())
     }
 
     fn delete(&mut self) -> Result<(), Error> {
-        let mut cond_map = self.body.as_object().ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
+        let mut cond_map = self
+            .body
+            .as_object()
+            .ok_or(Error::CommonError {
+                info: "invalid json format".to_string(),
+            })?
+            .clone();
         let opr = Self::extra_op(&mut cond_map)?;
         let cond = self.parse_op(&cond_map)?;
         if cond.len() > 0 {
-            self.sql = format!("DELETE FROM {} WHERE {}", self.tbl.get_model(), cond.join(opr.as_str()));
+            self.sql = format!(
+                "DELETE FROM {} WHERE {}",
+                self.tbl.get_model(),
+                cond.join(opr.as_str())
+            );
         } else {
             self.sql = format!("DELETE FROM {}", self.tbl.get_model());
         }
@@ -117,9 +132,18 @@ impl Dao {
         }
 
         if cond.len() > 0 {
-            self.sql = format!("UPDATE {} SET {} WHERE {}", self.tbl.get_model(), fmt_params.join(", "), cond.join(opr.as_str()));
+            self.sql = format!(
+                "UPDATE {} SET {} WHERE {}",
+                self.tbl.get_model(),
+                fmt_params.join(", "),
+                cond.join(opr.as_str())
+            );
         } else {
-            self.sql = format!("UPDATE {} SET {}", self.tbl.get_model(), fmt_params.join(", "));
+            self.sql = format!(
+                "UPDATE {} SET {}",
+                self.tbl.get_model(),
+                fmt_params.join(", ")
+            );
         }
 
         Ok(())
@@ -128,26 +152,53 @@ impl Dao {
     fn select(&mut self) -> Result<(), Error> {
         let mut where_clause: Vec<String> = Vec::new();
 
-        let mut query = self.body.as_object().ok_or(Error::CommonError { info: "invalid json format".to_string() })?.clone();
+        let mut query = self
+            .body
+            .as_object()
+            .ok_or(Error::CommonError {
+                info: "invalid json format".to_string(),
+            })?
+            .clone();
         let opr = Self::extra_op(&mut query)?;
         if let Some(v) = query.remove("order") {
-            let orders = v.as_str().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", "order") })?;
+            let orders = v.as_str().ok_or(Error::CommonError {
+                info: format!("invalid json format at token '{}'", "order"),
+            })?;
             where_clause.push(format!("ORDER BY {}", orders.replace("__", " ")));
         }
         if let Some(v) = query.remove("limit") {
-            let limit = v.as_i64().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", "limit") })?;
+            let limit = v.as_i64().ok_or(Error::CommonError {
+                info: format!("invalid json format at token '{}'", "limit"),
+            })?;
             where_clause.push(format!("LIMIT {}", limit));
             if let Some(v) = query.remove("offset") {
-                let offset = v.as_i64().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", "offset") })?;
+                let offset = v.as_i64().ok_or(Error::CommonError {
+                    info: format!("invalid json format at token '{}'", "offset"),
+                })?;
                 where_clause.push(format!("OFFSET {}", offset));
             }
         }
         let cond = self.parse_op(&query)?;
-        let columns = self.tbl.get_fields().iter().map(|f| f.name.clone()).collect::<Vec<_>>();
+        let columns = self
+            .tbl
+            .get_fields()
+            .iter()
+            .map(|f| f.name.clone())
+            .collect::<Vec<_>>();
         if cond.len() + where_clause.len() > 0 {
-            self.sql = format!("SELECT {} FROM {} WHERE {} {}", columns.join(", "), self.tbl.get_model(), cond.join(opr.as_str()), where_clause.join(" "));
+            self.sql = format!(
+                "SELECT {} FROM {} WHERE {} {}",
+                columns.join(", "),
+                self.tbl.get_model(),
+                cond.join(opr.as_str()),
+                where_clause.join(" ")
+            );
         } else {
-            self.sql = format!("SELECT {} FROM {}", columns.join(", "), self.tbl.get_model());
+            self.sql = format!(
+                "SELECT {} FROM {}",
+                columns.join(", "),
+                self.tbl.get_model()
+            );
         }
         Ok(())
     }
@@ -164,7 +215,9 @@ impl Dao {
                 self.padd(f, _v);
                 Ok(())
             } else {
-                Err(Error::CommonError { info: "invalid json format".to_string() })
+                Err(Error::CommonError {
+                    info: "invalid json format".to_string(),
+                })
             }
         };
         let mut index = 0;
@@ -215,9 +268,14 @@ impl Dao {
                 }
                 "in" => {
                     if !v.is_array() {
-                        return Err(Error::CommonError { info: format!("invalid format at {}, it`s must json array", f) });
+                        return Err(Error::CommonError {
+                            info: format!("invalid format at {}, it`s must json array", f),
+                        });
                     }
-                    let list = v.as_array().unwrap().iter()
+                    let list = v
+                        .as_array()
+                        .unwrap()
+                        .iter()
                         .map(|f| {
                             let v: Option<MyValue> = f.convert();
                             v
@@ -236,7 +294,9 @@ impl Dao {
                     index += 1;
                 }
                 _ => {
-                    return Err(Error::CommonError { info: format!("Unsupported operator {}", f) });
+                    return Err(Error::CommonError {
+                        info: format!("Unsupported operator {}", f),
+                    });
                 }
             };
             fmt_params.push(param);
@@ -248,23 +308,32 @@ impl Dao {
     fn extra_op(map: &mut Map<String, JsValue>) -> Result<String, Error> {
         let mut opr = String::new();
         if let Some(val) = map.remove("operator") {
-            let opr_s = val.as_str().ok_or(Error::CommonError { info: format!("invalid format at token operator:{}", val) })?;
+            let opr_s = val.as_str().ok_or(Error::CommonError {
+                info: format!("invalid format at token operator:{}", val),
+            })?;
             if opr_s == "AND" {
                 opr.push_str(" AND ");
             } else if opr_s == "OR" {
                 opr.push_str(" OR ");
             } else {
-                return Err(Error::CommonError { info: format!("invalid operator:{}", opr_s) });
+                return Err(Error::CommonError {
+                    info: format!("invalid operator:{}", opr_s),
+                });
             }
         }
         Ok(opr)
     }
 
     fn get_js<T>(&self, token: T) -> Result<Map<String, JsValue>, Error>
-        where
-            T: ToString + Display {
-        let values = self.body.get(token.to_string()).ok_or(Error::CommonError { info: "invalid json format".to_string() })?;
-        let map = values.as_object().ok_or(Error::CommonError { info: format!("invalid json format at token '{}'", token) })?;
+    where
+        T: ToString + Display,
+    {
+        let values = self.body.get(token.to_string()).ok_or(Error::CommonError {
+            info: "invalid json format".to_string(),
+        })?;
+        let map = values.as_object().ok_or(Error::CommonError {
+            info: format!("invalid json format at token '{}'", token),
+        })?;
         Ok(map.clone())
     }
 
@@ -282,27 +351,46 @@ impl Dao {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
+    use config::DBRoute;
     use dal::dao::Dao;
-    use dal::table::Table;
-    use dal::table::Field;
     use dal::dao::DML;
-    use dal::db::DB;
     use dal::db::open_db;
+    use dal::db::DB;
+    use dal::table::Field;
+    use dal::table::Table;
+    use serde_json::Value;
     use std::sync::Arc;
     use std::sync::Mutex;
-    use config::DBRoute;
 
     fn new() -> Arc<Table> {
         let db = "block".to_string();
         let model = "TbTestModel".to_string();
         let pks = vec!["RoleGuid".to_string(), "TwoKey".to_string()];
-        let fields = vec![Field { name: "RoleGuid".to_string(), tpe: "varchar".to_string() },
-                          Field { name: "TwoKey".to_string(), tpe: "int".to_string() },
-                          Field { name: "CreateTime".to_string(), tpe: "varchar".to_string() },
-                          Field { name: "CreateDatetime".to_string(), tpe: "date".to_string() },
-                          Field { name: "CreateDate".to_string(), tpe: "datetime".to_string() },
-                          Field { name: "CreateTimestamp".to_string(), tpe: "int".to_string() },
+        let fields = vec![
+            Field {
+                name: "RoleGuid".to_string(),
+                tpe: "varchar".to_string(),
+            },
+            Field {
+                name: "TwoKey".to_string(),
+                tpe: "int".to_string(),
+            },
+            Field {
+                name: "CreateTime".to_string(),
+                tpe: "varchar".to_string(),
+            },
+            Field {
+                name: "CreateDatetime".to_string(),
+                tpe: "date".to_string(),
+            },
+            Field {
+                name: "CreateDate".to_string(),
+                tpe: "datetime".to_string(),
+            },
+            Field {
+                name: "CreateTimestamp".to_string(),
+                tpe: "int".to_string(),
+            },
         ];
         Arc::new(Table::default(db, model, pks, fields))
     }

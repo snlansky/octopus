@@ -56,14 +56,11 @@ impl Support {
             if let Some(route) = self.routes.get_mut(alias) {
                 // 有就更新
                 if !route.eq(data) {
-                    match route.update(data) {
-                        Err(e) => {
-                            error!(
-                                "update {} failed, reason {:?}, config: {:?}",
-                                alias, e, &data
-                            )
-                        }
-                        _ => {}
+                    if let Err(e) = route.update(data) {
+                        error!(
+                            "update {} failed, reason {:?}, config: {:?}",
+                            alias, e, &data
+                        );
                     };
                 }
             }
@@ -307,7 +304,7 @@ mod tests {
             Arc::new(table),
             body,
         )
-            .unwrap();
+        .unwrap();
         thread::sleep(time::Duration::from_secs(2));
         assert_eq!(json!(2), i);
     }

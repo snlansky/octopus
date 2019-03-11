@@ -191,12 +191,7 @@ impl MemContext {
         tbl.register_schema(con).map_err(Error::MemError)
     }
 
-    fn get_value(
-        &self,
-        mid: String,
-        fields: &[Field],
-        con: &Connection,
-    ) -> Result<JsValue, Error> {
+    fn get_value(&self, mid: String, fields: &[Field], con: &Connection) -> Result<JsValue, Error> {
         let fs = fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>();
         let values: Vec<String> = con.hget(mid, fs)?;
 

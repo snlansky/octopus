@@ -35,9 +35,7 @@ impl DB {
         let ts: Vec<String> = conn.prep_exec(sql, params).map(|result| {
             result
                 .map(|x| x.unwrap())
-                .map(|row| {
-                    mysql::from_row(row)
-                })
+                .map(mysql::from_row)
                 .collect::<Vec<_>>()
         })?;
 

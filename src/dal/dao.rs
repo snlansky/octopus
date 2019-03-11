@@ -325,8 +325,8 @@ impl Dao {
     }
 
     fn get_js<T>(&self, token: T) -> Result<Map<String, JsValue>, Error>
-        where
-            T: ToString + Display,
+    where
+        T: ToString + Display,
     {
         let values = self.body.get(token.to_string()).ok_or(Error::CommonError {
             info: "invalid json format".to_string(),

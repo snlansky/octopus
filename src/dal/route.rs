@@ -3,7 +3,7 @@ use config::MemRoute;
 use dal::db::open_db;
 use dal::db::DB;
 use dal::mem::Mem;
-use dal::Error;
+use error::Error;
 
 pub struct Route {
     alias: String,

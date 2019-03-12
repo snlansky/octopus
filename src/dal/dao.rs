@@ -1,7 +1,7 @@
 use dal::db::DB;
-use dal::error::Error;
 use dal::table::Table;
 use dal::value::ConvertTo;
+use error::Error;
 use mysql::Row;
 use mysql::Value as MyValue;
 use serde_json::Map;

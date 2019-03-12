@@ -1,6 +1,6 @@
 use config::DBRoute;
-use dal::error::Error;
 use dal::table::{Table, TableSchema};
+use error::Error;
 use mysql::{Pool, PooledConn, Value};
 use std::collections::HashMap;
 

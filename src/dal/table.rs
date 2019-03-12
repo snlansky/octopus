@@ -1,6 +1,6 @@
-use dal::error::Error;
 use dal::lua::LuaScript;
 use dal::value::ConvertTo;
+use error::Error;
 use redis::Connection;
 use serde_json::Value as JsValue;
 use std::collections::HashMap;

@@ -1,5 +1,7 @@
 use dal::add;
 use dal::Support;
+use error::Error;
+use error::Error::CommonError;
 use grpc::RequestOptions;
 use grpc::Server;
 use grpc::SingleResponse;
@@ -7,6 +9,7 @@ use proto::orm::Request;
 use proto::orm::Response;
 use proto::orm_grpc::Orm;
 use proto::orm_grpc::OrmServer;
+use std::panic::catch_unwind;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -42,20 +45,19 @@ impl Orm for Handler {
         }
         let lock = lock.unwrap();
 
-        // grpc::SingleResponse::err(grpc::Error::Panic("uri is null".to_string()))
         let uri = req.uri.as_ref();
-        if uri.is_none() {
-            return grpc::SingleResponse::err(grpc::Error::Panic("uri is null".to_string()));
-        }
-        let uri = uri.unwrap();
+        let uri = if uri.is_some() {
+            uri.unwrap()
+        } else {
+            return panic_error("uri is null".to_string());
+        };
 
         let route = lock.data_route(uri.db.as_str());
-        if route.is_none() {
-            return grpc::SingleResponse::err(grpc::Error::Panic(format!("not fond db:{}", uri.db)));
-        }
-        let route = route.unwrap();
-
-
+        let route = if route.is_some() {
+            route.unwrap()
+        } else {
+            return panic_error(format!("not fond db:{}", uri.db));
+        };
 
         grpc::SingleResponse::completed(Response::new())
     }
@@ -75,4 +77,17 @@ impl Orm for Handler {
     fn transact(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
         unimplemented!()
     }
+}
+
+impl From<Error> for grpc::SingleResponse<Response> {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::CommonError { info: e } => grpc::SingleResponse::err(grpc::Error::Panic(e)),
+            _ => grpc::SingleResponse::err(grpc::Error::Panic("Internal error".to_string())),
+        }
+    }
+}
+
+fn panic_error(s: String) -> SingleResponse<Response> {
+    grpc::SingleResponse::err(grpc::Error::Panic(s))
 }

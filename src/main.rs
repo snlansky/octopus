@@ -29,6 +29,7 @@ use std::thread;
 mod config;
 mod dal;
 mod discovery;
+mod error;
 mod proto;
 mod server;
 

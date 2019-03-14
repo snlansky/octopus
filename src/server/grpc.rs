@@ -13,9 +13,8 @@ use std::panic::catch_unwind;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-pub fn new(support: Arc<Mutex<Support>>) -> Server {
-    let lock = support.lock().unwrap();
-    let port = lock.port();
+pub fn new(support: Arc<Support>) -> Server {
+    let port = support.port();
     let mut server = grpc::ServerBuilder::new_plain();
     server.http.set_port(port as u16);
     server.http.set_cpu_pool_threads(4);
@@ -24,40 +23,41 @@ pub fn new(support: Arc<Mutex<Support>>) -> Server {
 }
 
 struct Handler {
-    support: Arc<Mutex<Support>>,
+    support: Arc<Support>,
 }
 
 impl Handler {
-    pub fn new(support: Arc<Mutex<Support>>) -> Handler {
+    pub fn new(support: Arc<Support>) -> Handler {
         Handler { support }
     }
 }
 
 impl Orm for Handler {
-    fn add(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
+    fn add<'a>(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
         //        unimplemented!()
         let support = self.support.clone();
-        let lock = support.try_lock();
-        if lock.is_err() {
-            return grpc::SingleResponse::err(grpc::Error::Panic(
-                "get db source failed".to_string(),
-            ));
-        }
-        let lock = lock.unwrap();
 
-        let uri = req.uri.as_ref();
-        let uri = if uri.is_some() {
-            uri.unwrap()
-        } else {
-            return panic_error("uri is null".to_string());
+        let uri = match req.uri.as_ref() {
+            Some(uri) => uri,
+            None => {
+                return panic_string("uri is null".to_string());
+            }
         };
 
-        let route = lock.data_route(uri.db.as_str());
-        let route = if route.is_some() {
-            route.unwrap()
-        } else {
-            return panic_error(format!("not fond db:{}", uri.db));
+        let route = match support.data().lock() {
+            Ok(data) => {
+                match data.get(&uri.db) {
+                    Some(r) => r,
+                    None => {
+                        return panic_string(format!("not fond db:{}", uri.db));
+                    }
+                }
+            }
+            Err(err) => {
+                return panic_string(format!("lock db {} failed", uri.db));
+            }
         };
+
 
         grpc::SingleResponse::completed(Response::new())
     }
@@ -88,6 +88,13 @@ impl From<Error> for grpc::SingleResponse<Response> {
     }
 }
 
-fn panic_error(s: String) -> SingleResponse<Response> {
+fn panic_error(e: Error) -> SingleResponse<Response> {
+    match e {
+        Error::CommonError { info: e } => grpc::SingleResponse::err(grpc::Error::Panic(e)),
+        _ => grpc::SingleResponse::err(grpc::Error::Panic("Internal error".to_string())),
+    }
+}
+
+fn panic_string(s: String) -> SingleResponse<Response> {
     grpc::SingleResponse::err(grpc::Error::Panic(s))
 }

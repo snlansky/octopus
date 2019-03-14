@@ -21,7 +21,7 @@ use threadpool::ThreadPool;
 pub struct Support {
     register: Arc<Register>,
     port: i32,
-    routes: HashMap<String, Route>,
+    routes: Mutex<HashMap<String, Route>>,
 }
 
 impl Support {
@@ -29,16 +29,16 @@ impl Support {
         register: Arc<Register>,
         mut provider: Provider,
         pool: &ThreadPool,
-    ) -> Arc<Mutex<Self>> {
+    ) -> Arc<Self> {
         let services = provider.watch();
         info!("{:?}", services);
         let mut support = Support {
             register,
             port: services.port,
-            routes: HashMap::new(),
+            routes: Mutex::new(HashMap::new()),
         };
         support.update(&services);
-        let support = arc_mutex(support);
+        let support = Arc::new(support);
         async_update(support.clone(), provider, pool);
         support
     }
@@ -47,13 +47,30 @@ impl Support {
         self.port
     }
 
-    pub fn data_route(&self, db_alias: &str) -> Option<&Route> {
-        self.routes.get(db_alias)
+    pub fn data_route(&self, db_alias: &str) -> Result<Option<&Route>, Error> {
+        let map = self.routes.lock().map_err(|err| {
+            CommonError { info: format!("lock {} route failed", db_alias) }
+        })?;
+
+        let route = map.get(db_alias);
+        Ok(route)
     }
 
-    fn update(&mut self, services: &Services) {
+    pub fn data(&self) -> &Mutex<HashMap<String, Route>> {
+        &self.routes
+    }
+
+    fn update(&self, services: &Services) {
+        let routes = self.routes.lock();
+        let mut routes = if routes.is_ok() {
+            routes.unwrap()
+        } else {
+            return;
+        };
+
+
         for (alias, data) in &services.data {
-            if let Some(route) = self.routes.get_mut(alias) {
+            if let Some(route) = routes.get_mut(alias) {
                 // 有就更新
                 if !route.eq(data) {
                     if let Err(e) = route.update(data) {
@@ -64,36 +81,34 @@ impl Support {
                     };
                 }
             }
-            if !self.routes.contains_key(alias) {
+            if !routes.contains_key(alias) {
                 let route = Route::new(alias, data);
                 match route {
                     Ok(r) => {
-                        self.routes.insert(alias.clone(), r);
+                        routes.insert(alias.clone(), r);
                     }
                     Err(e) => error!("save {} failed, reason {:?}, config: {:?}", alias, e, &data),
                 };
             }
         }
 
-        let list = self
-            .routes
+        let list = routes
             .iter()
             .map(|(k, _)| k.clone())
             .filter(|k| !services.data.contains_key(k))
             .collect::<Vec<_>>();
         for alias in list {
             info!("remove {}", alias);
-            self.routes.remove(&alias);
+            routes.remove(&alias);
         }
     }
 }
 
-fn async_update(s: Arc<Mutex<Support>>, mut provider: Provider, pool: &ThreadPool) {
+fn async_update(s: Arc<Support>, mut provider: Provider, pool: &ThreadPool) {
     pool.execute(move || loop {
         let services = provider.watch();
-        let mut p = s.lock().unwrap();
         info!("\n{:?}", services);
-        p.update(&services);
+        s.update(&services);
     });
 }
 
@@ -304,7 +319,7 @@ mod tests {
             Arc::new(table),
             body,
         )
-        .unwrap();
+            .unwrap();
         thread::sleep(time::Duration::from_secs(2));
         assert_eq!(json!(2), i);
     }

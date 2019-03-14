@@ -32,7 +32,7 @@ impl Support {
     ) -> Arc<Self> {
         let services = provider.watch();
         info!("{:?}", services);
-        let mut support = Support {
+        let support = Support {
             register,
             port: services.port,
             routes: Mutex::new(HashMap::new()),
@@ -47,14 +47,14 @@ impl Support {
         self.port
     }
 
-    pub fn data_route(&self, db_alias: &str) -> Result<Option<&Route>, Error> {
-        let map = self.routes.lock().map_err(|err| {
-            CommonError { info: format!("lock {} route failed", db_alias) }
-        })?;
-
-        let route = map.get(db_alias);
-        Ok(route)
-    }
+//    pub fn data_route(&self, db_alias: &str) -> Result<Option<&Route>, Error> {
+//        let map = self.routes.lock().map_err(|err| {
+//            CommonError { info: format!("lock {} route failed", db_alias) }
+//        })?;
+//
+//        let route = map.get(db_alias);
+//        Ok(route)
+//    }
 
     pub fn data(&self) -> &Mutex<HashMap<String, Route>> {
         &self.routes

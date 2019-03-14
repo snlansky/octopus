@@ -33,7 +33,7 @@ impl Handler {
 }
 
 impl Orm for Handler {
-    fn add<'a>(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
+    fn add(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
         //        unimplemented!()
         let support = self.support.clone();
 
@@ -44,17 +44,21 @@ impl Orm for Handler {
             }
         };
 
-        let route = match support.data().lock() {
+        let route = support.data().lock();
+
+        let route = match route {
             Ok(data) => {
-                match data.get(&uri.db) {
-                    Some(r) => r,
-                    None => {
-                        return panic_string(format!("not fond db:{}", uri.db));
-                    }
-                }
+                data
             }
             Err(err) => {
                 return panic_string(format!("lock db {} failed", uri.db));
+            }
+        };
+
+        let route = match route.get(&uri.db) {
+            Some(r) => r,
+            None => {
+                return panic_string(format!("not fond db:{}", uri.db));
             }
         };
 

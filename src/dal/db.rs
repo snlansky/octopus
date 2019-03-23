@@ -79,7 +79,7 @@ impl DB {
         Ok(())
     }
 
-    pub fn get_conn(&mut self) -> Result<PooledConn, Error> {
+    pub fn get_conn(&self) -> Result<PooledConn, Error> {
         let conn = self.pool.get_conn()?;
         Ok(conn)
     }

@@ -34,8 +34,11 @@ impl Route {
         &self.db
     }
 
-    pub fn get_mem(&self) -> &Option<Mem> {
-        &self.mem
+    pub fn get_mem(&self) -> Option<&Mem> {
+        match &self.mem {
+            Some(m) => Some(m),
+            None => None,
+        }
     }
 
     pub fn update(&mut self, route: &DataRoute) -> Result<(), Error> {
@@ -62,7 +65,7 @@ impl Route {
         }
     }
 
-    pub fn get_table(&self, table: String) -> Option<&Table> {
-        self.db.tables.get(&table)
+    pub fn get_table(&self, table: &String) -> Option<&Table> {
+        self.db.tables.get(table)
     }
 }

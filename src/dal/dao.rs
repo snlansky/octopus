@@ -42,12 +42,12 @@ impl <'a>Dao<'a> {
         }
     }
 
-    pub fn exec_sql(&mut self, db: Arc<Mutex<DB>>) -> Result<DaoResult, Error> {
+    pub fn exec_sql(&mut self, db: &DB) -> Result<DaoResult, Error> {
         self.build()?;
         println!("SQL->{}", self.sql);
-        let mut db = db.lock().map_err(|e| Error::CommonError {
-            info: format!("get db lock error: {:?}", e),
-        })?;
+//        let mut db = db.lock().map_err(|e| Error::CommonError {
+//            info: format!("get db lock error: {:?}", e),
+//        })?;
         let mut conn = db.get_conn()?;
         let qr = conn.prep_exec(self.sql.clone(), self.params.clone())?;
 

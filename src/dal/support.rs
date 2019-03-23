@@ -17,6 +17,7 @@ use serde_json::Value as JsValue;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use threadpool::ThreadPool;
+use proto::orm::Uri;
 
 pub struct Support {
     register: Arc<Register>,
@@ -112,8 +113,12 @@ fn async_update(s: Arc<Support>, mut provider: Provider, pool: &ThreadPool) {
     });
 }
 
-pub fn add(db: Arc<Mutex<DB>>, tbl: Arc<Table>, body: JsValue) -> Result<JsValue, Error> {
-    let mut dao = Dao::new(tbl, DML::Insert, body);
+pub fn add(route: &Route, url: &Uri, body: JsValue) -> Result<JsValue, Error> {
+    let table = route.get_table(url.orm).ok_or(Error::CommonError { info: format!("table {} not found", url.orm) })?;
+
+
+
+    let mut dao = Dao::new(table, DML::Insert, body);
     match dao.exec_sql(db)? {
         DaoResult::Affected(i) => Ok(json!(i)),
         _ => unreachable!(),

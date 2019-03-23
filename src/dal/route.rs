@@ -4,6 +4,7 @@ use dal::db::open_db;
 use dal::db::DB;
 use dal::mem::Mem;
 use error::Error;
+use dal::table::Table;
 
 pub struct Route {
     alias: String,
@@ -59,5 +60,9 @@ impl Route {
             }
             None => Ok(None),
         }
+    }
+
+    pub fn get_table(&self, table: String) -> Option<&Table> {
+        self.db.tables.get(&table)
     }
 }

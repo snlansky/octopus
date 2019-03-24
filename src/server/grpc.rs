@@ -62,8 +62,16 @@ impl Orm for Handler {
             }
         };
 
+        let res = add(uri, route, json!(req.body));
 
-        grpc::SingleResponse::completed(Response::new())
+        match res {
+            Ok(v) => {
+                let mut resp = Response::new();
+                resp.set_content(v.to_string().as_bytes().to_vec());
+                grpc::SingleResponse::completed(resp)
+            }
+            Err(e) => grpc::SingleResponse::from(e),
+        }
     }
 
     fn remove(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {

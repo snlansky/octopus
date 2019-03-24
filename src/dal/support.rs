@@ -113,7 +113,7 @@ fn async_update(s: Arc<Support>, mut provider: Provider, pool: &ThreadPool) {
     });
 }
 
-pub fn add(route: &Route, url: &Uri, body: JsValue) -> Result<JsValue, Error> {
+pub fn add(url: &Uri, route: &Route, body: JsValue) -> Result<JsValue, Error> {
     let table = route.get_table(&url.orm).ok_or(Error::CommonError { info: format!("table {} not found", url.orm) })?;
     let db = route.get_db();
     let mut dao = Dao::new(table, DML::Insert, body);
@@ -123,7 +123,7 @@ pub fn add(route: &Route, url: &Uri, body: JsValue) -> Result<JsValue, Error> {
     }
 }
 
-pub fn remove(route: &Route, url: &Uri, body: JsValue) -> Result<JsValue, Error> {
+pub fn remove(url: &Uri, route: &Route, body: JsValue) -> Result<JsValue, Error> {
     let tbl = route.get_table(&url.orm).ok_or(Error::CommonError { info: format!("table {} not found", url.orm) })?;
     let db = route.get_db();
     if let Some(mut mem) = route.get_mem() {
@@ -150,9 +150,8 @@ pub fn remove(route: &Route, url: &Uri, body: JsValue) -> Result<JsValue, Error>
 }
 
 pub fn modify(
-    route: &Route,
     url: &Uri,
-    pool: &ThreadPool,
+    route: &Route,
     body: JsValue,
 ) -> Result<JsValue, Error> {
     let tbl = route.get_table(&url.orm).ok_or(Error::CommonError { info: format!("table {} not found", url.orm) })?;
@@ -169,17 +168,10 @@ pub fn modify(
     if let Some(mut mem) = route.get_mem() {
         let mut mem = MemContext::new(&mem);
         let mids = mem.load_update(tbl, body.clone(), db)?;
-
-        let mem= Mutex::new(mem);
-
         let i = mids.len();
-        pool.execute(move || {
-            let mut mem = mem.lock().unwrap();
-            let res = up_dao(tbl);
-            if res.is_err() {
-                mem.del(tbl, mids).unwrap();
-            }
-        });
+        if up_dao(tbl).is_err() {
+            mem.del(tbl, mids).unwrap();
+        }
         Ok(json!(i))
     } else {
         up_dao(tbl)
@@ -187,8 +179,8 @@ pub fn modify(
 }
 
 pub fn find(
-    route: &Route,
     url: &Uri,
+    route: &Route,
     body: JsValue,
 ) -> Result<JsValue, Error> {
     let cond = body

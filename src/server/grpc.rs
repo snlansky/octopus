@@ -1,17 +1,18 @@
-use dal::add;
+use dal::{add, remove, modify, find, Route};
 use dal::Support;
 use error::Error;
 use error::Error::CommonError;
 use grpc::RequestOptions;
 use grpc::Server;
 use grpc::SingleResponse;
-use proto::orm::Request;
+use proto::orm::{Request, Uri};
 use proto::orm::Response;
 use proto::orm_grpc::Orm;
 use proto::orm_grpc::OrmServer;
 use std::panic::catch_unwind;
 use std::sync::Arc;
 use std::sync::Mutex;
+use serde_json::Value as JsValue;
 
 pub fn new(support: Arc<Support>) -> Server {
     let port = support.port();
@@ -30,13 +31,9 @@ impl Handler {
     pub fn new(support: Arc<Support>) -> Handler {
         Handler { support }
     }
-}
 
-impl Orm for Handler {
-    fn add(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
-        //        unimplemented!()
-        let support = self.support.clone();
-
+    fn adapter<F>(support: Arc<Support>, req: Request, f: F) -> SingleResponse<Response>
+        where F: FnOnce(&Uri, &Route, JsValue) -> Result<JsValue, Error> {
         let uri = match req.uri.as_ref() {
             Some(uri) => uri,
             None => {
@@ -62,7 +59,7 @@ impl Orm for Handler {
             }
         };
 
-        let res = add(uri, route, json!(req.body));
+        let res = f(uri, route, json!(req.body));
 
         match res {
             Ok(v) => {
@@ -73,17 +70,23 @@ impl Orm for Handler {
             Err(e) => grpc::SingleResponse::from(e),
         }
     }
+}
+
+impl Orm for Handler {
+    fn add(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
+        return Self::adapter(self.support.clone(), req, add);
+    }
 
     fn remove(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
-        unimplemented!()
+        return Self::adapter(self.support.clone(), req, remove);
     }
 
     fn modify(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
-        unimplemented!()
+        return Self::adapter(self.support.clone(), req, modify);
     }
 
     fn find(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
-        unimplemented!()
+        return Self::adapter(self.support.clone(), req, find);
     }
 
     fn transact(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {

@@ -1,7 +1,6 @@
 use dal::{add, remove, modify, find, Route};
 use dal::Support;
 use error::Error;
-use error::Error::CommonError;
 use grpc::RequestOptions;
 use grpc::Server;
 use grpc::SingleResponse;
@@ -9,9 +8,7 @@ use proto::orm::{Request, Uri};
 use proto::orm::Response;
 use proto::orm_grpc::Orm;
 use proto::orm_grpc::OrmServer;
-use std::panic::catch_unwind;
 use std::sync::Arc;
-use std::sync::Mutex;
 use serde_json::Value as JsValue;
 
 pub fn new(support: Arc<Support>) -> Server {
@@ -47,7 +44,7 @@ impl Handler {
             Ok(data) => {
                 data
             }
-            Err(err) => {
+            Err(_err) => {
                 return panic_string(format!("lock db {} failed", uri.db));
             }
         };
@@ -73,23 +70,23 @@ impl Handler {
 }
 
 impl Orm for Handler {
-    fn add(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
+    fn add(&self, _: RequestOptions, req: Request) -> SingleResponse<Response> {
         return Self::adapter(self.support.clone(), req, add);
     }
 
-    fn remove(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
+    fn remove(&self, _: RequestOptions, req: Request) -> SingleResponse<Response> {
         return Self::adapter(self.support.clone(), req, remove);
     }
 
-    fn modify(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
+    fn modify(&self, _: RequestOptions, req: Request) -> SingleResponse<Response> {
         return Self::adapter(self.support.clone(), req, modify);
     }
 
-    fn find(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
+    fn find(&self, _: RequestOptions, req: Request) -> SingleResponse<Response> {
         return Self::adapter(self.support.clone(), req, find);
     }
 
-    fn transact(&self, opt: RequestOptions, req: Request) -> SingleResponse<Response> {
+    fn transact(&self, _: RequestOptions, req: Request) -> SingleResponse<Response> {
         unimplemented!()
     }
 }

@@ -14,8 +14,6 @@ use serde_json::Map;
 use serde_json::Value as JsValue;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::MutexGuard;
 
 pub struct Mem {
     con: Connection,
@@ -48,13 +46,6 @@ impl <'a>MemContext<'a> {
             mem,
         }
     }
-
-//    fn get_mem(&self) -> Result<MutexGuard<Mem>, Error> {
-//        let mem = self.mem.lock().map_err(|e| Error::CommonError {
-//            info: format!("get mem connection lock error: {:?}", e),
-//        })?;
-//        Ok(mem)
-//    }
 
     pub fn del(&mut self, tbl: &Table, mid: Vec<String>) -> Result<isize, Error> {
         let mut lua = LuaScript::new();

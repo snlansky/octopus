@@ -8,7 +8,6 @@ use serde_json::Map;
 use serde_json::Value as JsValue;
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::sync::{Arc, Mutex};
 
 pub enum DML {
     Insert,

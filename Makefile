@@ -11,11 +11,15 @@ help:
 	@echo "  - make clean             清理可执行文件和 Docker 镜像"
 	@echo
 
+#https://www.jianshu.com/p/0d02c2b55e81
 install:
+	cargo install protobuf
 	cargo install protobuf-codegen
 	cargo install grpcio-compiler
 	rustup component add rustfmt
 	rustup component add clippy-preview
+build:
+	cargo build
 start:
 	docker-compose up -d
 stop:
